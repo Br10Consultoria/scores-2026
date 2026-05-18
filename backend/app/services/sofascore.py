@@ -17,6 +17,9 @@ COMPETITIONS = [
         'name': 'Brasileirão Série A',
         'slug': 'brasileirao-serie-a',
         'country': 'Brazil',
+        'has_standings': True,
+        'collect_players': True,
+        'set_primary_competition': True,
     },
     {
         'id': settings.SOFASCORE_SERIE_B_TOURNAMENT_ID,
@@ -24,6 +27,29 @@ COMPETITIONS = [
         'name': 'Brasileirão Série B',
         'slug': 'brasileirao-serie-b',
         'country': 'Brazil',
+        'has_standings': True,
+        'collect_players': True,
+        'set_primary_competition': True,
+    },
+    {
+        'id': settings.SOFASCORE_COPA_BRASIL_TOURNAMENT_ID,
+        'season_id': settings.SOFASCORE_COPA_BRASIL_SEASON_ID,
+        'name': 'Copa do Brasil',
+        'slug': 'copa-do-brasil',
+        'country': 'Brazil',
+        'has_standings': False,
+        'collect_players': False,
+        'set_primary_competition': False,
+    },
+    {
+        'id': settings.SOFASCORE_WORLD_CUP_TOURNAMENT_ID,
+        'season_id': settings.SOFASCORE_WORLD_CUP_SEASON_ID,
+        'name': 'Copa do Mundo FIFA',
+        'slug': 'fifa-world-cup',
+        'country': 'World',
+        'has_standings': True,
+        'collect_players': False,
+        'set_primary_competition': True,
     },
 ]
 
@@ -78,7 +104,15 @@ class SofaScoreClient:
     def get_standings(self, tournament_id: int, season_id: int) -> list[dict]:
         path = f'/unique-tournament/{tournament_id}/season/{season_id}/standings/total'
         data = self._get(path, ttl=3 * 3600)
-        return data.get('standings', [{}])[0].get('rows', [])
+        rows: list[dict] = []
+        for standing in data.get('standings', []):
+            group_name = standing.get('name') or standing.get('groupName') or standing.get('type')
+            for row in standing.get('rows', []):
+                normalized = dict(row)
+                normalized['_standing_group'] = group_name
+                normalized['_standing_type'] = standing.get('type')
+                rows.append(normalized)
+        return rows
 
     def get_team_players(self, team_id: int) -> list[dict]:
         data = self._get(f'/team/{team_id}/players', ttl=24 * 3600)
@@ -101,8 +135,10 @@ class SofaScoreClient:
         paths = [
             f'/unique-tournament/{tournament_id}/season/{season_id}/events/last/0',
             f'/unique-tournament/{tournament_id}/season/{season_id}/events/last/1',
+            f'/unique-tournament/{tournament_id}/season/{season_id}/events/last/2',
             f'/unique-tournament/{tournament_id}/season/{season_id}/events/next/0',
             f'/unique-tournament/{tournament_id}/season/{season_id}/events/next/1',
+            f'/unique-tournament/{tournament_id}/season/{season_id}/events/next/2',
         ]
         for path in paths:
             data = self._get_optional(path, ttl=30 * 60)
@@ -156,7 +192,7 @@ def _upsert_competition(db: Session, meta: dict) -> Competition:
     return comp
 
 
-def _upsert_team(db: Session, raw_team: dict, competition_id: int | None = None) -> Team | None:
+def _upsert_team(db: Session, raw_team: dict, competition_id: int | None = None, set_primary: bool = True) -> Team | None:
     team_id = raw_team.get('id')
     if not team_id:
         return None
@@ -166,7 +202,8 @@ def _upsert_team(db: Session, raw_team: dict, competition_id: int | None = None)
     team.slug = raw_team.get('slug')
     team.country = (raw_team.get('country') or {}).get('name') if isinstance(raw_team.get('country'), dict) else None
     team.logo_url = _team_logo_url(int(team_id))
-    team.primary_competition_id = competition_id or team.primary_competition_id
+    if competition_id and (set_primary or not team.primary_competition_id):
+        team.primary_competition_id = competition_id
     team.raw_data = raw_team
     team.updated_at = utc_now_naive()
     return db.merge(team)
@@ -182,13 +219,13 @@ def _standing_value(row: dict, *names: str) -> int | None:
 
 def _sync_standings(db: Session, client: SofaScoreClient, comp: Competition, meta: dict) -> tuple[int, list[Team]]:
     rows = client.get_standings(int(meta['id']), int(meta['season_id']))
-    teams: list[Team] = []
+    teams_by_id: dict[int, Team] = {}
     for row in rows:
         raw_team = row.get('team') or {}
-        team = _upsert_team(db, raw_team, comp.id)
+        team = _upsert_team(db, raw_team, comp.id, bool(meta.get('set_primary_competition', True)))
         if not team:
             continue
-        teams.append(team)
+        teams_by_id[team.team_id] = team
         standing = (
             db.query(StandingRow)
             .filter(StandingRow.competition_id == comp.id, StandingRow.season_id == int(meta['season_id']), StandingRow.team_id == team.team_id)
@@ -209,7 +246,7 @@ def _sync_standings(db: Session, client: SofaScoreClient, comp: Competition, met
         standing.updated_at = utc_now_naive()
         db.merge(standing)
     db.commit()
-    return len(rows), teams
+    return len(rows), list(teams_by_id.values())
 
 
 def _sync_players(db: Session, client: SofaScoreClient, team: Team, comp: Competition) -> int:
@@ -267,14 +304,20 @@ def _sync_players(db: Session, client: SofaScoreClient, team: Team, comp: Compet
     return count
 
 
-def _sync_matches(db: Session, client: SofaScoreClient, comp: Competition, meta: dict) -> int:
+def _sync_matches(db: Session, client: SofaScoreClient, comp: Competition, meta: dict) -> tuple[int, list[Team]]:
     count = 0
+    teams_by_id: dict[int, Team] = {}
+    set_primary = bool(meta.get('set_primary_competition', True))
     for raw in client.get_events(int(meta['id']), int(meta['season_id'])):
         match_id = raw.get('id')
         if not match_id:
             continue
-        home = _upsert_team(db, raw.get('homeTeam') or {}, comp.id) if raw.get('homeTeam') else None
-        away = _upsert_team(db, raw.get('awayTeam') or {}, comp.id) if raw.get('awayTeam') else None
+        home = _upsert_team(db, raw.get('homeTeam') or {}, comp.id, set_primary) if raw.get('homeTeam') else None
+        away = _upsert_team(db, raw.get('awayTeam') or {}, comp.id, set_primary) if raw.get('awayTeam') else None
+        if home:
+            teams_by_id[home.team_id] = home
+        if away:
+            teams_by_id[away.team_id] = away
         match = db.get(Match, int(match_id)) or Match(match_id=int(match_id))
         match.competition_id = comp.id
         match.season_id = int(meta['season_id'])
@@ -294,7 +337,7 @@ def _sync_matches(db: Session, client: SofaScoreClient, comp: Competition, meta:
         db.merge(match)
         count += 1
     db.commit()
-    return count
+    return count, list(teams_by_id.values())
 
 
 def sync_teams_and_players(db: Session) -> str:
@@ -303,18 +346,53 @@ def sync_teams_and_players(db: Session) -> str:
     db.commit()
     client = SofaScoreClient()
     competitions_count = standings_count = teams_count = players_count = matches_count = 0
+    warnings: list[str] = []
     try:
         for meta in COMPETITIONS:
-            comp = _upsert_competition(db, meta)
-            competitions_count += 1
-            standing_rows, teams = _sync_standings(db, client, comp, meta)
-            standings_count += standing_rows
-            teams_count += len(teams)
-            matches_count += _sync_matches(db, client, comp, meta)
-            for team in teams:
-                players_count += _sync_players(db, client, team, comp)
-        run.status = 'success'
-        run.message = f'Coleta concluída: {competitions_count} competições, {teams_count} times, {standings_count} linhas de tabela, {matches_count} jogos e {players_count} jogadores atualizados.'
+            comp_name = meta['name']
+            print(f'[SofaScore] Iniciando coleta: {comp_name} ({meta["id"]}/{meta["season_id"]})', flush=True)
+            try:
+                comp = _upsert_competition(db, meta)
+                competitions_count += 1
+                teams_by_id: dict[int, Team] = {}
+
+                if meta.get('has_standings', True):
+                    standing_rows, standing_teams = _sync_standings(db, client, comp, meta)
+                    standings_count += standing_rows
+                    teams_by_id.update({team.team_id: team for team in standing_teams})
+                    print(f'[SofaScore] {comp_name}: {standing_rows} linhas de tabela.', flush=True)
+                else:
+                    print(f'[SofaScore] {comp_name}: competição sem standings; coletando times pelas partidas.', flush=True)
+
+                match_rows, match_teams = _sync_matches(db, client, comp, meta)
+                matches_count += match_rows
+                teams_by_id.update({team.team_id: team for team in match_teams})
+                teams_count += len(teams_by_id)
+                print(f'[SofaScore] {comp_name}: {len(teams_by_id)} times e {match_rows} jogos sincronizados.', flush=True)
+
+                if meta.get('collect_players', True):
+                    for team in teams_by_id.values():
+                        try:
+                            players_count += _sync_players(db, client, team, comp)
+                        except Exception as exc:
+                            db.rollback()
+                            warning = f'{comp_name}/{team.name}: falha ao coletar elenco ou estatísticas ({exc})'
+                            warnings.append(warning)
+                            print(f'[SofaScore][WARN] {warning}', flush=True)
+                else:
+                    print(f'[SofaScore] {comp_name}: coleta de elencos desativada para reduzir duplicidade e carga.', flush=True)
+            except Exception as exc:
+                db.rollback()
+                warning = f'{comp_name}: falha na coleta da competição ({exc})'
+                warnings.append(warning)
+                print(f'[SofaScore][WARN] {warning}', flush=True)
+                continue
+
+        run.status = 'success' if not warnings else 'success_with_warnings'
+        warning_text = f' Avisos: {"; ".join(warnings[:8])}' if warnings else ''
+        if len(warnings) > 8:
+            warning_text += f' ... e mais {len(warnings) - 8} aviso(s).'
+        run.message = f'Coleta concluída: {competitions_count} competições, {teams_count} vínculos de times por competição, {standings_count} linhas de tabela, {matches_count} jogos e {players_count} jogadores atualizados.{warning_text}'
     except Exception as exc:
         db.rollback()
         run.status = 'error'

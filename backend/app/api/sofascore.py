@@ -53,6 +53,22 @@ def _player_dict(player: Player, team_name: str | None = None, stats: PlayerStat
     return data
 
 
+def _team_ids_for_competition(db: Session, competition_id: int | None = None) -> set[int]:
+    standing_query = db.query(StandingRow.team_id)
+    match_query = db.query(Match.home_team_id, Match.away_team_id)
+    if competition_id:
+        standing_query = standing_query.filter(StandingRow.competition_id == competition_id)
+        match_query = match_query.filter(Match.competition_id == competition_id)
+
+    team_ids = {team_id for (team_id,) in standing_query.distinct().all() if team_id is not None}
+    for home_team_id, away_team_id in match_query.all():
+        if home_team_id is not None:
+            team_ids.add(home_team_id)
+        if away_team_id is not None:
+            team_ids.add(away_team_id)
+    return team_ids
+
+
 def _stats_dict(stats: PlayerStats | None):
     if not stats:
         return None
@@ -130,7 +146,8 @@ def list_teams(
 ):
     query = db.query(Team)
     if competition_id:
-        query = query.filter(Team.primary_competition_id == competition_id)
+        team_ids = list(_team_ids_for_competition(db, competition_id)) or [-1]
+        query = query.filter(Team.team_id.in_(team_ids))
     if q:
         query = query.filter(Team.name.ilike(f'%{q}%'))
     teams = query.order_by(Team.name.asc()).all()
@@ -208,7 +225,8 @@ def list_players(
     if team_id:
         query = query.filter(Player.team_id == team_id)
     if competition_id:
-        query = query.filter(or_(PlayerStats.competition_id == competition_id, Team.primary_competition_id == competition_id))
+        team_ids = list(_team_ids_for_competition(db, competition_id)) or [-1]
+        query = query.filter(or_(PlayerStats.competition_id == competition_id, Team.team_id.in_(team_ids)))
     if min_rating:
         query = query.filter(PlayerStats.rating >= min_rating)
     if sort == 'rating':

@@ -1,7 +1,7 @@
 import csv
 from io import StringIO
 from fastapi import APIRouter, Depends, Response
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -15,6 +15,22 @@ def _dt(value):
     return utc_iso(value)
 
 
+def _team_ids_for_competition(db: Session, competition_id: int | None = None) -> set[int]:
+    standing_query = db.query(StandingRow.team_id)
+    match_query = db.query(Match.home_team_id, Match.away_team_id)
+    if competition_id:
+        standing_query = standing_query.filter(StandingRow.competition_id == competition_id)
+        match_query = match_query.filter(Match.competition_id == competition_id)
+
+    team_ids = {team_id for (team_id,) in standing_query.distinct().all() if team_id is not None}
+    for home_team_id, away_team_id in match_query.all():
+        if home_team_id is not None:
+            team_ids.add(home_team_id)
+        if away_team_id is not None:
+            team_ids.add(away_team_id)
+    return team_ids
+
+
 @router.get('/dashboard')
 def dashboard(competition_id: int | None = None, _: object = Depends(get_current_user), db: Session = Depends(get_db)):
     team_query = db.query(Team)
@@ -22,17 +38,16 @@ def dashboard(competition_id: int | None = None, _: object = Depends(get_current
     stats_query = db.query(PlayerStats)
     match_query = db.query(Match)
     standing_query = db.query(StandingRow)
+    scoped_team_ids = _team_ids_for_competition(db, competition_id)
     if competition_id:
-        team_query = team_query.filter(Team.primary_competition_id == competition_id)
-        player_query = player_query.join(Team, Team.team_id == Player.team_id).filter(Team.primary_competition_id == competition_id)
-        stats_query = stats_query.filter(PlayerStats.competition_id == competition_id)
+        team_id_filter = list(scoped_team_ids) or [-1]
+        team_query = team_query.filter(Team.team_id.in_(team_id_filter))
+        player_query = player_query.join(Team, Team.team_id == Player.team_id).filter(Team.team_id.in_(team_id_filter))
+        stats_query = stats_query.join(Player, Player.player_id == PlayerStats.player_id).filter(or_(PlayerStats.competition_id == competition_id, Player.team_id.in_(team_id_filter)))
         match_query = match_query.filter(Match.competition_id == competition_id)
         standing_query = standing_query.filter(StandingRow.competition_id == competition_id)
 
-    if competition_id:
-        teams = standing_query.with_entities(func.count(func.distinct(StandingRow.team_id))).scalar() or team_query.count()
-    else:
-        teams = db.query(func.count(func.distinct(StandingRow.team_id))).scalar() or team_query.count()
+    teams = len(scoped_team_ids) or team_query.count()
     players = player_query.count()
     stats_rows = stats_query.count()
     matches = match_query.count()
@@ -79,11 +94,7 @@ def dashboard(competition_id: int | None = None, _: object = Depends(get_current
         .all()
     ) if db.bind.dialect.name != 'sqlite' else []
     competitions = db.query(Competition).order_by(Competition.name.asc()).all()
-    team_counts_by_competition = dict(
-        db.query(StandingRow.competition_id, func.count(func.distinct(StandingRow.team_id)))
-        .group_by(StandingRow.competition_id)
-        .all()
-    )
+    team_counts_by_competition = {c.id: len(_team_ids_for_competition(db, c.id)) for c in competitions}
 
     return {
         'meta': {
