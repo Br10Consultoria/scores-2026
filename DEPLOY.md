@@ -8,10 +8,10 @@ O servidor deve possuir Docker, Docker Compose, Git e acesso de saída à intern
 
 | Serviço | Porta interna | Porta publicada | Observação |
 | --- | ---: | ---: | --- |
-| Frontend | 80 | 8080 | Interface web React servida via Nginx. |
-| Backend | 8000 | 8000 | API FastAPI. Em produção, coloque atrás de proxy reverso HTTPS. |
-| PostgreSQL | 5432 | 5432 | Pode ser removido da publicação externa se usado apenas internamente. |
-| Redis | 6379 | 6379 | Pode ser removido da publicação externa se usado apenas internamente. |
+| Frontend | 80 | `127.0.0.1:18080` | Interface web React servida via Nginx interno e acessada pelo proxy HTTPS. |
+| Backend | 8000 | `127.0.0.1:18000` | API FastAPI acessada pelo proxy em `/api/`. |
+| PostgreSQL | 5432 | Não publicada | Acessível somente pela rede Docker. |
+| Redis | 6379 | Não publicada | Acessível somente pela rede Docker. |
 
 > Em produção, a recomendação é expor publicamente apenas o proxy reverso HTTPS, mantendo PostgreSQL e Redis acessíveis somente dentro da rede Docker ou rede privada do servidor.
 
@@ -26,11 +26,15 @@ cp .env.example .env
 nano .env
 ```
 
-Defina, no mínimo, `POSTGRES_PASSWORD`, `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD`, `CORS_ORIGINS` e `VITE_API_URL`. Para produção com domínio próprio, um exemplo típico seria:
+Defina, no mínimo, `POSTGRES_PASSWORD`, `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD`, `CORS_ORIGINS` e `VITE_API_URL`. Para produção em `scores.br10consultoria.com.br`, use um exemplo como:
 
 ```env
-CORS_ORIGINS=https://scores.seudominio.com
-VITE_API_URL=https://api.scores.seudominio.com/api/v1
+CORS_ORIGINS=https://scores.br10consultoria.com.br
+VITE_API_URL=https://scores.br10consultoria.com.br/api/v1
+FRONTEND_BIND_ADDRESS=127.0.0.1
+FRONTEND_PORT=18080
+BACKEND_BIND_ADDRESS=127.0.0.1
+BACKEND_PORT=18000
 SECRET_KEY=gere_uma_chave_longa_aleatoria
 FIRST_SUPERUSER_EMAIL=admin@seudominio.com
 FIRST_SUPERUSER_USERNAME=admin
@@ -56,9 +60,10 @@ Após a primeira subida, acesse:
 
 | Recurso | URL local padrão |
 | --- | --- |
-| Interface web | `http://SEU_SERVIDOR:8080` |
-| API | `http://SEU_SERVIDOR:8000` |
-| Documentação OpenAPI | `http://SEU_SERVIDOR:8000/docs` |
+| Interface web local ao servidor | `http://127.0.0.1:18080` |
+| API local ao servidor | `http://127.0.0.1:18000` |
+| Documentação OpenAPI local | `http://127.0.0.1:18000/docs` |
+| URL pública esperada | `https://scores.br10consultoria.com.br` |
 
 ## 4. Autenticação e 2FA
 
@@ -125,18 +130,17 @@ Esse arquivo pode ser baixado pela área administrativa ou consumido por ferrame
 
 ## 9. Proxy reverso e HTTPS
 
-Para produção, utilize Nginx, Traefik ou Caddy na frente dos serviços. Um desenho recomendado é:
+Para produção em `scores.br10consultoria.com.br`, utilize o proxy reverso já existente no servidor. O projeto inclui modelos em `infra/nginx/scores.br10consultoria.com.br.conf` e `infra/caddy/Caddyfile`. O desenho recomendado é:
 
-| Domínio | Destino interno |
+| Rota pública | Destino interno |
 | --- | --- |
-| `scores.seudominio.com` | `http://127.0.0.1:8080` |
-| `api.scores.seudominio.com` | `http://127.0.0.1:8000` |
+| `https://scores.br10consultoria.com.br/` | `http://127.0.0.1:18080` |
+| `https://scores.br10consultoria.com.br/api/` | `http://127.0.0.1:18000/api/` |
+| `https://scores.br10consultoria.com.br/docs` | `http://127.0.0.1:18000/docs` |
 
-Depois de configurar HTTPS, atualize `CORS_ORIGINS` e `VITE_API_URL`, então reconstrua o frontend:
+Como já existe outra aplicação usando a porta 80, não suba um segundo proxy nas portas públicas 80/443. Adicione o virtual host do Scores ao Nginx/Caddy/Traefik existente. Se a aplicação antiga estiver ocupando a porta 80 diretamente, mova essa aplicação antiga para uma porta interna e deixe o proxy reverso principal assumir as portas públicas.
 
-```bash
-docker compose up -d --build frontend backend
-```
+Consulte também `PRODUCTION_DOMAIN.md` para o passo a passo específico do domínio.
 
 ## 10. Manutenção
 

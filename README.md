@@ -46,7 +46,7 @@ Para ativar também o bot Telegram:
 docker compose --profile telegram up -d --build
 ```
 
-Acesse a interface em `http://SEU_SERVIDOR:8080` e a documentação da API em `http://SEU_SERVIDOR:8000/docs`.
+Em produção, acesse a interface em `https://scores.br10consultoria.com.br`. Localmente no servidor, os containers ficam em `http://127.0.0.1:18080` (frontend) e `http://127.0.0.1:18000/docs` (API), para serem publicados pelo proxy reverso HTTPS existente.
 
 ## Usuário inicial
 
@@ -94,7 +94,7 @@ docker compose --profile telegram up -d --build telegram
 
 ## Deploy e operação
 
-Consulte o arquivo [`DEPLOY.md`](DEPLOY.md) para instruções completas de produção, incluindo proxy reverso HTTPS, cron semanal no servidor próprio, backup do PostgreSQL, portas recomendadas e tratamento de bloqueios da SofaScore.
+Consulte os arquivos [`DEPLOY.md`](DEPLOY.md) e [`PRODUCTION_DOMAIN.md`](PRODUCTION_DOMAIN.md) para instruções completas de produção, incluindo proxy reverso HTTPS para `scores.br10consultoria.com.br`, cron semanal no servidor próprio, backup do PostgreSQL, portas recomendadas e tratamento de bloqueios da SofaScore.
 
 ## Segurança em produção
 

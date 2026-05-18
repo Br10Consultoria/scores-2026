@@ -1,0 +1,30 @@
+# Proxy reverso alternativo com Caddy para o Scores 2026.
+# Use este arquivo apenas se o Caddy for o proxy principal do servidor
+# responsável pelas portas públicas 80/443.
+
+scores.br10consultoria.com.br {
+    encode gzip zstd
+
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+
+    handle_path /api/* {
+        reverse_proxy 127.0.0.1:18000
+    }
+
+    handle /docs* {
+        reverse_proxy 127.0.0.1:18000
+    }
+
+    handle /openapi.json {
+        reverse_proxy 127.0.0.1:18000
+    }
+
+    handle {
+        reverse_proxy 127.0.0.1:18080
+    }
+}
