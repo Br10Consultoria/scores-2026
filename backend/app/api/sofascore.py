@@ -16,6 +16,58 @@ def _dt(value):
     return utc_iso(value)
 
 
+_MONTH_NAMES_PT = {
+    'janeiro': 1,
+    'jan': 1,
+    'fevereiro': 2,
+    'fev': 2,
+    'marco': 3,
+    'março': 3,
+    'mar': 3,
+    'abril': 4,
+    'abr': 4,
+    'maio': 5,
+    'mai': 5,
+    'junho': 6,
+    'jun': 6,
+    'julho': 7,
+    'jul': 7,
+    'agosto': 8,
+    'ago': 8,
+    'setembro': 9,
+    'set': 9,
+    'outubro': 10,
+    'out': 10,
+    'novembro': 11,
+    'nov': 11,
+    'dezembro': 12,
+    'dez': 12,
+}
+
+
+def _month_range(month: str) -> tuple[datetime, datetime] | None:
+    value = (month or '').strip().lower()
+    if not value:
+        return None
+    year = 2026
+    parsed_month: int | None = None
+    try:
+        if len(value) >= 7 and value[4] == '-' and value[:4].isdigit() and value[5:7].isdigit():
+            year = int(value[:4])
+            parsed_month = int(value[5:7])
+        elif value.isdigit():
+            parsed_month = int(value)
+        else:
+            parsed_month = _MONTH_NAMES_PT.get(value)
+        if not parsed_month or parsed_month < 1 or parsed_month > 12:
+            return None
+        start = datetime(year, parsed_month, 1)
+        end = datetime(year + 1, 1, 1) if parsed_month == 12 else datetime(year, parsed_month + 1, 1)
+        return start, end
+    except ValueError:
+        return None
+
+
 def _team_dict(team: Team | None):
     if not team:
         return None
@@ -316,12 +368,10 @@ def matches(
     if status:
         query = query.filter(Match.status.ilike(f'%{status}%'))
     if month:
-        start = datetime.strptime(month + '-01', '%Y-%m-%d')
-        if start.month == 12:
-            end = datetime(start.year + 1, 1, 1)
-        else:
-            end = datetime(start.year, start.month + 1, 1)
-        query = query.filter(and_(Match.start_time >= start, Match.start_time < end))
+        month_range = _month_range(month)
+        if month_range:
+            start, end = month_range
+            query = query.filter(and_(Match.start_time >= start, Match.start_time < end))
     return [_match_dict(match) for match in query.order_by(Match.start_time.desc().nullslast()).limit(limit).all()]
 
 

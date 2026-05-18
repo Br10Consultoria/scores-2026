@@ -94,7 +94,7 @@ function App() {
       request(`/sofascore/teams${competitionId ? `?competition_id=${competitionId}` : ''}`),
       request(`/sofascore/players?limit=300&sort=${sort}${query ? `&q=${encodeURIComponent(query)}` : ''}${competitionId ? `&competition_id=${competitionId}` : ''}${teamId ? `&team_id=${teamId}` : ''}`),
       request(`/sofascore/standings${competitionId ? `?competition_id=${competitionId}` : ''}`),
-      request(`/sofascore/matches?limit=200${competitionId ? `&competition_id=${competitionId}` : ''}${teamId ? `&team_id=${teamId}` : ''}${month ? `&month=${month}` : ''}`),
+      request(`/sofascore/matches?limit=200${competitionId ? `&competition_id=${competitionId}` : ''}${teamId ? `&team_id=${teamId}` : ''}${month ? `&month=${encodeURIComponent(month)}` : ''}`),
     ])
     setDashboard(dash); setCompetitions(comps); setTeams(teamRows); setPlayers(playerRows); setStandings(standingRows); setMatches(matchRows)
   }, [token, competitionId, teamId, month, sort, query])
