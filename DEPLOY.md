@@ -84,7 +84,7 @@ Se a SofaScore retornar **403 Forbidden**, configure `SOFASCORE_COOKIE` com um c
 A sincronização manual pode ser disparada pela API autenticada em:
 
 ```text
-POST /api/v1/collect/sofascore
+POST /api/v1/sofascore/sync
 ```
 
 ## 6. Agendamento em servidor próprio
