@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_superuser
-from app.database import get_db
-from app.models import Competition, Match, Player, PlayerStats, StandingRow, Team
+from app.database import SessionLocal, get_db
+from app.models import CollectionRun, Competition, Match, Player, PlayerStats, StandingRow, Team
 from app.core.datetime_utils import utc_iso
 from app.schemas import SyncResponse
 from app.services.sofascore import sync_teams_and_players
@@ -115,10 +115,21 @@ def _match_dict(match: Match):
     }
 
 
+def _run_sofascore_sync_background() -> None:
+    db = SessionLocal()
+    try:
+        sync_teams_and_players(db)
+    finally:
+        db.close()
+
+
 @router.post('/sync', response_model=SyncResponse)
-def sync(_: object = Depends(get_superuser), db: Session = Depends(get_db)):
-    message = sync_teams_and_players(db)
-    return SyncResponse(status='ok', message=message)
+def sync(background_tasks: BackgroundTasks, _: object = Depends(get_superuser), db: Session = Depends(get_db)):
+    running = db.query(CollectionRun).filter(CollectionRun.status == 'running').first()
+    if running:
+        return SyncResponse(status='running', message='Já existe uma sincronização em andamento. Acompanhe a conclusão pelos logs ou pelo status no dashboard.')
+    background_tasks.add_task(_run_sofascore_sync_background)
+    return SyncResponse(status='accepted', message='Sincronização iniciada em segundo plano. Atualize o dashboard em alguns minutos para acompanhar Série A, Série B, Copa do Brasil e Copa do Mundo.')
 
 
 @router.get('/competitions')
