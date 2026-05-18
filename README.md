@@ -7,10 +7,10 @@
 | Área | Recursos |
 | --- | --- |
 | Segurança | Login com usuário/senha, hash bcrypt, JWT e autenticação 2FA via TOTP. |
-| Dados | Coleta de times e jogadores pela API pública da SofaScore, com cache Redis e tratamento de bloqueios 403. |
-| Banco | PostgreSQL com modelos para usuários, times, jogadores, estatísticas, execuções de coleta e Telegram. |
-| Interface | Frontend React responsivo com layout profissional, cards, gráficos, busca, tabela de jogadores e ações administrativas. |
-| Relatórios | Dashboard estatístico e exportação CSV autenticada em `/api/v1/reports/players.csv`. |
+| Dados | Coleta ampliada da SofaScore para Série A e Série B, incluindo competições, standings/tabelas, times, escudos, elencos, jogadores, jogos, resultados e estatísticas disponíveis. |
+| Banco | PostgreSQL com modelos para usuários, competições, times, jogadores, estatísticas por competição, standings, partidas, registros brutos SofaScore, execuções de coleta e Telegram. |
+| Interface | Frontend React responsivo com abas clicáveis, filtros por competição/time/mês/status, cards, gráficos com legendas, tabela classificatória, jogos, rankings e modais de detalhes de times e jogadores. |
+| Relatórios | Dashboard estatístico, rankings de rating/gols/assistências, distribuição por posição, partidas por mês, standings, datas de atualização e exportação CSV autenticada em `/api/v1/reports/players.csv`. |
 | Telegram | Bot com comandos administrativos, consulta de indicadores e sincronização protegida por lista de chats permitidos. |
 | Deploy | Docker Compose com backend FastAPI, frontend Nginx, PostgreSQL, Redis e perfil opcional para Telegram. |
 
@@ -72,9 +72,15 @@ As principais consultas ficam em:
 
 | Endpoint | Finalidade |
 | --- | --- |
-| `GET /api/v1/sofascore/teams` | Lista os times coletados. |
-| `GET /api/v1/sofascore/players` | Lista jogadores com filtros de busca e posição. |
-| `GET /api/v1/reports/dashboard` | Retorna estatísticas consolidadas para o dashboard. |
+| `GET /api/v1/sofascore/competitions` | Lista competições coletadas, incluindo Série A e Série B conforme configuração. |
+| `GET /api/v1/sofascore/teams` | Lista times coletados, com filtro por competição e busca textual. |
+| `GET /api/v1/sofascore/teams/{team_id}` | Retorna detalhe clicável do time, elenco, tabela, jogos recentes e rating médio. |
+| `GET /api/v1/sofascore/players` | Lista jogadores com filtros por busca, posição, time, competição, rating mínimo, ordenação e limite. |
+| `GET /api/v1/sofascore/players/{player_id}` | Retorna detalhe clicável do jogador, estatísticas e registro bruto quando disponível. |
+| `GET /api/v1/sofascore/standings` | Retorna tabela/classificação por competição, com pontos, vitórias, saldo e data de atualização. |
+| `GET /api/v1/sofascore/matches` | Retorna jogos/resultados com filtros por competição, time, mês e status. |
+| `GET /api/v1/sofascore/compare/players` | Compara jogadores selecionados por métricas de rating, gols, assistências e partidas. |
+| `GET /api/v1/reports/dashboard` | Retorna estatísticas consolidadas para o dashboard, incluindo metadados e legendas. |
 | `GET /api/v1/reports/players.csv` | Exporta relatório CSV autenticado. |
 
 ## Telegram

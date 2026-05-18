@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     SOFASCORE_BASE_URL: str = 'https://api.sofascore.com/api/v1'
     SOFASCORE_TOURNAMENT_ID: int = 325
     SOFASCORE_SEASON_ID: int = 58766
+    SOFASCORE_SERIE_A_TOURNAMENT_ID: int = 325
+    SOFASCORE_SERIE_A_SEASON_ID: int = 58766
+    SOFASCORE_SERIE_B_TOURNAMENT_ID: int = 390
+    SOFASCORE_SERIE_B_SEASON_ID: int = 58767
     SOFASCORE_USER_AGENT: str = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     SOFASCORE_REFERER: str = 'https://www.sofascore.com/'
     SOFASCORE_COOKIE: str = ''

@@ -92,6 +92,10 @@ A sincronização manual pode ser disparada pela API autenticada em:
 POST /api/v1/sofascore/sync
 ```
 
+Na versão ampliada, a sincronização coleta também competições configuradas, Série A e Série B quando disponíveis, standings/tabelas, escudos dos times, elencos, jogadores, partidas, resultados e estatísticas públicas retornadas pela SofaScore. Por esse motivo, a primeira coleta após a atualização pode levar mais tempo do que a versão inicial, e o acompanhamento deve ser feito pelos logs do backend.
+
+Depois de atualizar o servidor, acione o botão **Sincronizar** na interface para preencher as novas telas clicáveis de times, jogadores, tabela, jogos, rankings, comparações e gráficos. Se algum endpoint da SofaScore limitar o acesso, o sistema mantém os dados que conseguir coletar e registra o diagnóstico na mensagem da coleta.
+
 ## 6. Agendamento em servidor próprio
 
 Como a execução é determinística e deve rodar no servidor do usuário, o agendamento recomendado é via **cron do próprio servidor**, sem qualquer dependência de execução Manus. Um exemplo para sincronizar semanalmente às segundas-feiras, 06:00 no fuso `America/Bahia`, é:
@@ -120,7 +124,7 @@ O bot possui comandos de consulta administrativa, como `/start`, `/resumo` e com
 
 ## 8. Relatórios e estatísticas
 
-A interface web possui dashboard responsivo com totais, rankings e gráficos. A API expõe também relatório CSV autenticado em:
+A interface web possui dashboard responsivo com totais, rankings, gráficos com legendas, datas de atualização, filtros por competição/time/mês/status, tabela classificatória, jogos/resultados, rankings de jogadores, detalhes clicáveis de times e jogadores, comparação de atletas e visualização de registros brutos quando disponíveis. A API expõe também relatório CSV autenticado em:
 
 ```text
 GET /api/v1/reports/players.csv
