@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { Activity, BarChart3, CalendarDays, Download, LineChart, Lock, RefreshCw, Search, ShieldCheck, Smartphone, Sparkles, Table2, Trophy, Users, X } from 'lucide-react'
+import { Activity, ArrowLeft, BarChart3, CalendarDays, Download, Home, LineChart, Lock, RefreshCw, Search, ShieldCheck, Smartphone, Sparkles, Table2, Trophy, Users, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart as RLineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import './styles.css'
 
@@ -36,6 +36,7 @@ function App() {
   const [password, setPassword] = React.useState('')
   const [code, setCode] = React.useState('')
   const [tab, setTab] = React.useState<Tab>('visao')
+  const [previousTab, setPreviousTab] = React.useState<Tab>('visao')
   const [dashboard, setDashboard] = React.useState<Dashboard | null>(null)
   const [competitions, setCompetitions] = React.useState<Competition[]>([])
   const [teams, setTeams] = React.useState<Team[]>([])
@@ -108,13 +109,34 @@ function App() {
     setLoading(false)
   }
 
-  async function openTeam(id: number) { setSelectedTeam(await request(`/sofascore/teams/${id}`)) }
-  async function openPlayer(id: number) { setSelectedPlayer(await request(`/sofascore/players/${id}`)) }
+  function changeTab(next: Tab) {
+    setPreviousTab(tab)
+    setTab(next)
+    setSelectedTeam(null)
+    setSelectedPlayer(null)
+  }
+
+  function goHome() {
+    setSelectedTeam(null)
+    setSelectedPlayer(null)
+    setPreviousTab('visao')
+    setTab('visao')
+  }
+
+  function goBack() {
+    if (selectedPlayer) { setSelectedPlayer(null); return }
+    if (selectedTeam) { setSelectedTeam(null); return }
+    setTab(previousTab || 'visao')
+    setPreviousTab('visao')
+  }
+
+  async function openTeam(id: number) { setSelectedPlayer(null); setSelectedTeam(await request(`/sofascore/teams/${id}`)) }
+  async function openPlayer(id: number) { setSelectedTeam(null); setSelectedPlayer(await request(`/sofascore/players/${id}`)) }
 
   async function compare() {
     if (!compareIds.length) return
     setComparison(await request(`/sofascore/compare/players?ids=${compareIds.join(',')}`))
-    setTab('comparar')
+    changeTab('comparar')
   }
 
   async function runAI(path: string, options: RequestInit = {}) {
@@ -163,14 +185,14 @@ function App() {
     <header className="bg-slate-950 text-white px-6 py-5 sticky top-0 z-20 shadow-lg">
       <div className="max-w-7xl mx-auto flex flex-col xl:flex-row justify-between gap-4">
         <div><h1 className="text-2xl font-bold">Scores 2026 Intelligence</h1><p className="text-slate-300">Série A/B, SofaScore, ratings, tabelas, jogos, estatísticas, Telegram e IA</p><p className="text-xs text-sky-200 mt-1">Última atualização: {formatDate(latest) || 'aguardando coleta'}</p></div>
-        <div className="flex flex-wrap gap-3"><button onClick={sync} className="secondary" disabled={loading}><RefreshCw size={18}/> {loading ? 'Sincronizando...' : 'Sincronizar'}</button><button onClick={analyzeDashboard} className="secondary" disabled={aiLoading}><Sparkles size={18}/> {aiLoading ? 'Analisando...' : 'Insight IA'}</button><a className="secondary muted" href={`${API_URL}/reports/players.csv`} target="_blank"><Download size={18}/> CSV</a><button onClick={() => {localStorage.removeItem('token'); setToken('')}} className="danger">Sair</button></div>
+        <div className="flex flex-wrap gap-3"><button onClick={goHome} className="secondary muted"><Home size={18}/> Home</button><button onClick={goBack} className="secondary muted"><ArrowLeft size={18}/> Voltar</button><button onClick={sync} className="secondary" disabled={loading}><RefreshCw size={18}/> {loading ? 'Sincronizando...' : 'Sincronizar'}</button><button onClick={analyzeDashboard} className="secondary" disabled={aiLoading}><Sparkles size={18}/> {aiLoading ? 'Analisando...' : 'Insight IA'}</button><a className="secondary muted" href={`${API_URL}/reports/players.csv`} target="_blank"><Download size={18}/> CSV</a><button onClick={() => {localStorage.removeItem('token'); setToken('')}} className="danger">Sair</button></div>
       </div>
     </header>
     <section className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
       {message && <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sky-900">{message}</div>}
       <Filters competitions={competitions} teams={teams} competitionId={competitionId} setCompetitionId={setCompetitionId} teamId={teamId} setTeamId={setTeamId} month={month} setMonth={setMonth} sort={sort} setSort={setSort} query={query} setQuery={setQuery} onApply={loadData}/>
       <AIInsight result={aiResult} loading={aiLoading} onClear={() => setAiResult(null)} />
-      <nav className="tabs"><TabButton active={tab==='visao'} onClick={() => setTab('visao')} icon={<BarChart3 size={18}/>} label="Visão geral"/><TabButton active={tab==='tabelas'} onClick={() => setTab('tabelas')} icon={<Table2 size={18}/>} label="Séries A/B"/><TabButton active={tab==='jogadores'} onClick={() => setTab('jogadores')} icon={<Users size={18}/>} label="Jogadores"/><TabButton active={tab==='times'} onClick={() => setTab('times')} icon={<Trophy size={18}/>} label="Times"/><TabButton active={tab==='jogos'} onClick={() => setTab('jogos')} icon={<CalendarDays size={18}/>} label="Jogos"/><TabButton active={tab==='comparar'} onClick={() => setTab('comparar')} icon={<LineChart size={18}/>} label="Comparar"/></nav>
+      <nav className="tabs"><TabButton active={tab==='visao'} onClick={() => changeTab('visao')} icon={<BarChart3 size={18}/>} label="Visão geral"/><TabButton active={tab==='tabelas'} onClick={() => changeTab('tabelas')} icon={<Table2 size={18}/>} label="Séries A/B"/><TabButton active={tab==='jogadores'} onClick={() => changeTab('jogadores')} icon={<Users size={18}/>} label="Jogadores"/><TabButton active={tab==='times'} onClick={() => changeTab('times')} icon={<Trophy size={18}/>} label="Times"/><TabButton active={tab==='jogos'} onClick={() => changeTab('jogos')} icon={<CalendarDays size={18}/>} label="Jogos"/><TabButton active={tab==='comparar'} onClick={() => changeTab('comparar')} icon={<LineChart size={18}/>} label="Comparar"/></nav>
       {tab === 'visao' && <Overview dashboard={dashboard} openPlayer={openPlayer} analyzeDashboard={analyzeDashboard} aiLoading={aiLoading}/>} 
       {tab === 'tabelas' && <Standings rows={standings} openTeam={openTeam}/>} 
       {tab === 'jogadores' && <Players players={players} openPlayer={openPlayer} compareIds={compareIds} setCompareIds={setCompareIds} compare={compare} analyzePlayer={analyzePlayer}/>} 
@@ -209,7 +231,7 @@ function TabButton({active,onClick,icon,label}: any){return <button className={a
 function ChartLegend({text}:{text:string}){return <p className="chart-legend">Legenda: {text}</p>}
 function Logo({src}:{src?:string}){return src?<img className="logo" src={src} loading="lazy"/>:<span className="logo placeholder">?</span>}
 function Info({label,value}:any){return <div className="info"><span>{label}</span><strong>{value ?? '-'}</strong></div>}
-function Modal({title,children,onClose}: any){return <div className="modal-bg"><div className="modal"><header><h2>{title}</h2><button onClick={onClose}><X/></button></header>{children}</div></div>}
+function Modal({title,children,onClose}: any){return <div className="modal-bg"><div className="modal"><header><h2>{title}</h2><button className="secondary light" onClick={onClose}><ArrowLeft size={18}/> Voltar</button><button onClick={onClose} aria-label="Fechar"><X/></button></header>{children}</div></div>}
 function formatDate(value?: string){ if(!value) return ''; try { return new Intl.DateTimeFormat('pt-BR',{dateStyle:'short', timeStyle:'short'}).format(new Date(value)) } catch { return value } }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<App />)
