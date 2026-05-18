@@ -26,7 +26,7 @@ cp .env.example .env
 nano .env
 ```
 
-Defina, no mínimo, `POSTGRES_PASSWORD`, `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD`, `CORS_ORIGINS` e `VITE_API_URL`. Para produção em `scores.br10consultoria.com.br`, use um exemplo como:
+Defina, no mínimo, `POSTGRES_PASSWORD`, `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD`, `CORS_ORIGINS` e `VITE_API_URL`. Para ativar a análise com IA, configure também `OPENAI_API_KEY`. Para produção em `scores.br10consultoria.com.br`, use um exemplo como:
 
 ```env
 CORS_ORIGINS=https://scores.br10consultoria.com.br
@@ -39,6 +39,9 @@ SECRET_KEY=gere_uma_chave_longa_aleatoria
 FIRST_SUPERUSER_EMAIL=admin@seudominio.com
 FIRST_SUPERUSER_USERNAME=admin
 FIRST_SUPERUSER_PASSWORD=troque_antes_do_primeiro_acesso
+OPENAI_API_KEY=sk-sua_chave_openai
+OPENAI_MODEL=gpt-4.1-mini
+OPENAI_MAX_TOKENS=1400
 TZ=America/Bahia
 ```
 
@@ -122,7 +125,7 @@ docker compose --profile telegram up -d --build telegram
 
 O bot possui comandos de consulta administrativa, como `/start`, `/resumo` e comandos de status/relatórios implementados no backend.
 
-## 8. Relatórios e estatísticas
+## 8. Relatórios, estatísticas e IA
 
 A interface web possui dashboard responsivo com totais, rankings, gráficos com legendas, datas de atualização, filtros por competição/time/mês/status, tabela classificatória, jogos/resultados, rankings de jogadores, detalhes clicáveis de times e jogadores, comparação de atletas e visualização de registros brutos quando disponíveis. A API expõe também relatório CSV autenticado em:
 
@@ -131,6 +134,14 @@ GET /api/v1/reports/players.csv
 ```
 
 Esse arquivo pode ser baixado pela área administrativa ou consumido por ferramentas externas de BI.
+
+A análise com IA fica disponível quando `OPENAI_API_KEY` está configurada no backend. Os botões **Insight IA**, **Analisar com IA**, **Analisar jogo com IA** e **Comparar com IA** chamam endpoints autenticados em `/api/v1/ai/*`. Se a chave não estiver configurada, a API retorna `503 Service Unavailable` com uma mensagem orientando a configuração. Após alterar variáveis OpenAI no `.env`, recrie o backend com `docker compose up -d --build backend` ou reinicie a stack completa.
+
+| Variável | Finalidade |
+| --- | --- |
+| `OPENAI_API_KEY` | Chave privada da conta OpenAI usada apenas no backend. Não deve ser exposta no frontend. |
+| `OPENAI_MODEL` | Modelo usado para gerar os textos analíticos. O padrão sugerido é `gpt-4.1-mini`. |
+| `OPENAI_MAX_TOKENS` | Limite aproximado de saída para cada resposta de IA, controlando tamanho e custo operacional. |
 
 ## 9. Proxy reverso e HTTPS
 

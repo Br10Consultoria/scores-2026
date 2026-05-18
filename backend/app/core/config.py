@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ''
     TELEGRAM_ALLOWED_CHAT_IDS: str = ''
 
+    OPENAI_API_KEY: str = ''
+    OPENAI_MODEL: str = 'gpt-4.1-mini'
+    OPENAI_BASE_URL: str = ''
+    OPENAI_TEMPERATURE: float = 0.2
+    OPENAI_MAX_TOKENS: int = 1400
+
     @property
     def cors_origin_list(self) -> List[str]:
         return [item.strip() for item in self.CORS_ORIGINS.split(',') if item.strip()]

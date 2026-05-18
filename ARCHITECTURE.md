@@ -2,7 +2,7 @@
 
 **Autor:** Manus AI  
 **Projeto:** Scores 2026  
-**Objetivo:** disponibilizar um sistema web responsivo e profissional para coleta, armazenamento, análise e consulta de dados de futebol a partir da SofaScore, com autenticação forte, relatórios estatísticos e integração com Telegram, preparado para execução em servidor próprio.
+**Objetivo:** disponibilizar um sistema web responsivo e profissional para coleta, armazenamento, análise e consulta de dados de futebol a partir da SofaScore, com autenticação forte, relatórios estatísticos, integração com Telegram e análise com IA via OpenAI, preparado para execução em servidor próprio.
 
 ## Visão geral
 
@@ -21,16 +21,17 @@ O sistema será implementado como uma aplicação full-stack autocontida no repo
 | Frontend | React + TypeScript + Vite + TailwindCSS | Interface responsiva, rápida e profissional, com boa organização de componentes. |
 | Gráficos | Recharts | Visualização de estatísticas, rankings, distribuição por posição e comparações. |
 | Telegram | python-telegram-bot | Bot para consultas, status de coleta e envio de alertas. |
+| IA | OpenAI API | Geração de análises textuais em português a partir dos dados persistidos no PostgreSQL. |
 | Deploy | Docker Compose + Nginx opcional | Execução em servidor próprio sem plataforma gerenciada externa. |
 
 ## Módulos principais
 
 | Módulo | Responsabilidade |
 |---|---|
-| `backend/app/api` | Rotas REST para autenticação, usuários, times, jogadores, estatísticas, relatórios e Telegram. |
-| `backend/app/core` | Configurações, segurança, JWT, TOTP, variáveis de ambiente e dependências globais. |
+| `backend/app/api` | Rotas REST para autenticação, usuários, times, jogadores, estatísticas, relatórios, Telegram e endpoints de IA. |
+| `backend/app/core` | Configurações, segurança, JWT, TOTP, variáveis de ambiente, OpenAI e dependências globais. |
 | `backend/app/models` | Modelos SQLAlchemy para usuários, times, jogadores, estatísticas, logs de coleta e configurações. |
-| `backend/app/services` | Regras de negócio, coleta SofaScore, relatórios, métricas e integração Telegram. |
+| `backend/app/services` | Regras de negócio, coleta SofaScore, relatórios, métricas, integração Telegram e preparação de contexto para OpenAI. |
 | `backend/app/tasks` | Jobs periódicos ou comandos manuais de sincronização. |
 | `frontend/src` | Aplicação React com telas de login, 2FA, dashboard, relatórios, jogadores, times e configurações. |
 | `docker` | Arquivos auxiliares de inicialização, banco e proxy. |
@@ -54,9 +55,11 @@ O login será dividido em duas etapas. Primeiro, o usuário informa e-mail ou no
 
 A coleta seguirá os endpoints descritos no guia anexado, começando por `unique-tournament/325/season/58766/standings/total` para times da Série A e avançando para `/api/v1/team/{id}/players` para elenco. As requisições usarão `User-Agent`, cache Redis, retry e persistência dos IDs no PostgreSQL para evitar consultas repetitivas.
 
-## Relatórios e estatísticas
+## Relatórios, estatísticas e IA
 
 O painel terá indicadores de visão geral, rankings, comparações entre jogadores e tabelas filtráveis. A API fornecerá endpoints agregados para total de times, jogadores, média de rating, artilheiros, assistências, goleiros e distribuição por posição. O frontend exibirá os dados por cards, gráficos responsivos e tabelas.
+
+A camada de IA foi isolada no backend em `backend/app/services/ai_analysis.py` e exposta por `backend/app/api/ai.py`. Essa decisão evita expor a chave `OPENAI_API_KEY` no navegador, permite reaproveitar a autenticação JWT existente e mantém o prompt restrito aos dados que já foram coletados e gravados no banco. O serviço monta contextos compactos para dashboard, time, jogador, partida e comparação de jogadores, e instrui o modelo a indicar limitações quando os dados públicos da SofaScore forem incompletos.
 
 ## Telegram
 

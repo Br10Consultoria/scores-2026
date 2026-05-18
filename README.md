@@ -1,6 +1,6 @@
 # Scores 2026
 
-**Scores 2026** é um sistema web profissional para coleta, organização e análise de dados da SofaScore. O projeto inclui autenticação por usuário/senha, autenticação de dois fatores, painel responsivo, relatórios estatísticos, exportação CSV e integração com Telegram. A solução foi preparada para execução em **servidor próprio**, usando Docker Compose, PostgreSQL e Redis, sem dependência de hospedagem Manus.
+**Scores 2026** é um sistema web profissional para coleta, organização e análise de dados da SofaScore. O projeto inclui autenticação por usuário/senha, autenticação de dois fatores, painel responsivo, relatórios estatísticos, exportação CSV, integração com Telegram e **análise com IA via OpenAI**. A solução foi preparada para execução em **servidor próprio**, usando Docker Compose, PostgreSQL e Redis, sem dependência de hospedagem Manus.
 
 ## Recursos implementados
 
@@ -11,6 +11,7 @@
 | Banco | PostgreSQL com modelos para usuários, competições, times, jogadores, estatísticas por competição, standings, partidas, registros brutos SofaScore, execuções de coleta e Telegram. |
 | Interface | Frontend React responsivo com abas clicáveis, filtros por competição/time/mês/status, cards, gráficos com legendas, tabela classificatória, jogos, rankings e modais de detalhes de times e jogadores. |
 | Relatórios | Dashboard estatístico, rankings de rating/gols/assistências, distribuição por posição, partidas por mês, standings, datas de atualização e exportação CSV autenticada em `/api/v1/reports/players.csv`. |
+| IA | Endpoints autenticados e botões no painel para gerar análises em português sobre dashboard, times, jogadores, partidas e comparação de atletas usando a API da OpenAI. |
 | Telegram | Bot com comandos administrativos, consulta de indicadores e sincronização protegida por lista de chats permitidos. |
 | Deploy | Docker Compose com backend FastAPI, frontend Nginx, PostgreSQL, Redis e perfil opcional para Telegram. |
 
@@ -82,6 +83,26 @@ As principais consultas ficam em:
 | `GET /api/v1/sofascore/compare/players` | Compara jogadores selecionados por métricas de rating, gols, assistências e partidas. |
 | `GET /api/v1/reports/dashboard` | Retorna estatísticas consolidadas para o dashboard, incluindo metadados e legendas. |
 | `GET /api/v1/reports/players.csv` | Exporta relatório CSV autenticado. |
+
+## Análise com IA
+
+A camada de IA usa dados já armazenados no PostgreSQL e gera textos em português com foco em leitura executiva, riscos, destaques e limitações dos dados disponíveis. Para ativar, configure sua chave da OpenAI no `.env` antes de subir o backend.
+
+```env
+OPENAI_API_KEY=sk-sua_chave_openai
+OPENAI_MODEL=gpt-4.1-mini
+OPENAI_MAX_TOKENS=1400
+```
+
+Os endpoints são protegidos por login e também estão disponíveis por botões na interface web.
+
+| Endpoint | Finalidade |
+| --- | --- |
+| `POST /api/v1/ai/dashboard-insight` | Gera insight consolidado do dashboard, opcionalmente filtrado por `competition_id`. |
+| `POST /api/v1/ai/team/{team_id}` | Analisa um time, elenco, tabela e jogos recentes. |
+| `POST /api/v1/ai/player/{player_id}` | Analisa um jogador e suas estatísticas disponíveis. |
+| `POST /api/v1/ai/match/{match_id}` | Analisa uma partida, placar, status e contexto dos times. |
+| `POST /api/v1/ai/compare` | Compara de 2 a 8 jogadores pelo corpo `{"player_ids": [1, 2]}`. |
 
 ## Telegram
 
