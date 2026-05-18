@@ -6,12 +6,13 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models import CollectionRun, Competition, Match, Player, PlayerStats, StandingRow, Team
+from app.core.datetime_utils import utc_iso
 
 router = APIRouter(prefix='/reports', tags=['reports'])
 
 
 def _dt(value):
-    return value.isoformat() if value else None
+    return utc_iso(value)
 
 
 @router.get('/dashboard')
@@ -28,13 +29,16 @@ def dashboard(competition_id: int | None = None, _: object = Depends(get_current
         match_query = match_query.filter(Match.competition_id == competition_id)
         standing_query = standing_query.filter(StandingRow.competition_id == competition_id)
 
-    teams = team_query.count()
+    if competition_id:
+        teams = standing_query.with_entities(func.count(func.distinct(StandingRow.team_id))).scalar() or team_query.count()
+    else:
+        teams = db.query(func.count(func.distinct(StandingRow.team_id))).scalar() or team_query.count()
     players = player_query.count()
     stats_rows = stats_query.count()
     matches = match_query.count()
     avg_rating = stats_query.with_entities(func.avg(PlayerStats.rating)).scalar()
     latest_run = db.query(CollectionRun).order_by(CollectionRun.started_at.desc()).first()
-    latest_update = db.query(func.max(Player.updated_at)).scalar()
+    latest_update = latest_run.finished_at if latest_run and latest_run.finished_at else db.query(func.max(Player.updated_at)).scalar()
 
     top_goals_rows = (
         db.query(Player.player_id, Player.name, Team.name.label('team'), PlayerStats.goals)
@@ -75,6 +79,11 @@ def dashboard(competition_id: int | None = None, _: object = Depends(get_current
         .all()
     ) if db.bind.dialect.name != 'sqlite' else []
     competitions = db.query(Competition).order_by(Competition.name.asc()).all()
+    team_counts_by_competition = dict(
+        db.query(StandingRow.competition_id, func.count(func.distinct(StandingRow.team_id)))
+        .group_by(StandingRow.competition_id)
+        .all()
+    )
 
     return {
         'meta': {
@@ -85,7 +94,7 @@ def dashboard(competition_id: int | None = None, _: object = Depends(get_current
             'latest_data_update': _dt(latest_update),
             'legend': 'Dados coletados da SofaScore e armazenados localmente. Ratings e estatísticas dependem da disponibilidade pública por jogador/competição.',
         },
-        'competitions': [{'id': c.id, 'name': c.name, 'season_id': c.season_id, 'updated_at': _dt(c.updated_at)} for c in competitions],
+        'competitions': [{'id': c.id, 'name': c.name, 'season_id': c.season_id, 'updated_at': _dt(c.updated_at), 'teams_count': team_counts_by_competition.get(c.id, 0)} for c in competitions],
         'teams': teams,
         'players': players,
         'stats_rows': stats_rows,

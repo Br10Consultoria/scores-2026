@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import time
 from typing import Any
@@ -7,6 +7,7 @@ import redis
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models import CollectionRun, Competition, Match, Player, PlayerStats, StandingRow, Team
+from app.core.datetime_utils import utc_now_naive
 
 
 COMPETITIONS = [
@@ -149,7 +150,7 @@ def _upsert_competition(db: Session, meta: dict) -> Competition:
     comp.country = meta.get('country')
     comp.season_id = int(meta['season_id'])
     comp.season_name = str(meta['season_id'])
-    comp.updated_at = datetime.utcnow()
+    comp.updated_at = utc_now_naive()
     db.merge(comp)
     db.commit()
     return comp
@@ -167,7 +168,7 @@ def _upsert_team(db: Session, raw_team: dict, competition_id: int | None = None)
     team.logo_url = _team_logo_url(int(team_id))
     team.primary_competition_id = competition_id or team.primary_competition_id
     team.raw_data = raw_team
-    team.updated_at = datetime.utcnow()
+    team.updated_at = utc_now_naive()
     return db.merge(team)
 
 
@@ -205,7 +206,7 @@ def _sync_standings(db: Session, client: SofaScoreClient, comp: Competition, met
         standing.points = _standing_value(row, 'points')
         standing.form = ''.join(row.get('form', []) if isinstance(row.get('form'), list) else []) or row.get('form')
         standing.raw_data = row
-        standing.updated_at = datetime.utcnow()
+        standing.updated_at = utc_now_naive()
         db.merge(standing)
     db.commit()
     return len(rows), teams
@@ -231,7 +232,7 @@ def _sync_players(db: Session, client: SofaScoreClient, team: Team, comp: Compet
         player.preferred_foot = raw_player.get('preferredFoot')
         player.market_value = _int(raw_player.get('proposedMarketValue') or raw_player.get('marketValue'))
         player.raw_data = raw_player
-        player.updated_at = datetime.utcnow()
+        player.updated_at = utc_now_naive()
         db.merge(player)
         db.commit()
 
@@ -259,7 +260,7 @@ def _sync_players(db: Session, client: SofaScoreClient, team: Team, comp: Compet
             stats.yellow_cards = _int(_field(stats_raw, 'yellowCards'))
             stats.red_cards = _int(_field(stats_raw, 'redCards'))
             stats.raw_data = stats_raw
-            stats.updated_at = datetime.utcnow()
+            stats.updated_at = utc_now_naive()
             db.merge(stats)
             db.commit()
         count += 1
@@ -286,10 +287,10 @@ def _sync_matches(db: Session, client: SofaScoreClient, comp: Competition, meta:
         match.away_score = _int(away_score.get('current') if isinstance(away_score, dict) else None)
         match.status = (raw.get('status') or {}).get('description') if isinstance(raw.get('status'), dict) else None
         match.start_timestamp = _int(raw.get('startTimestamp'))
-        match.start_time = datetime.fromtimestamp(int(raw['startTimestamp'])) if raw.get('startTimestamp') else None
+        match.start_time = datetime.fromtimestamp(int(raw['startTimestamp']), tz=timezone.utc).replace(tzinfo=None) if raw.get('startTimestamp') else None
         match.venue = (raw.get('venue') or {}).get('name') if isinstance(raw.get('venue'), dict) else None
         match.raw_data = raw
-        match.updated_at = datetime.utcnow()
+        match.updated_at = utc_now_naive()
         db.merge(match)
         count += 1
     db.commit()
@@ -319,7 +320,7 @@ def sync_teams_and_players(db: Session) -> str:
         run.status = 'error'
         run.message = str(exc)
     finally:
-        run.finished_at = datetime.utcnow()
+        run.finished_at = utc_now_naive()
         db.add(run)
         db.commit()
     return run.message or 'Coleta finalizada.'

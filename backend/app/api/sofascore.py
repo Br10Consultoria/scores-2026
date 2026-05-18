@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_superuser
 from app.database import get_db
 from app.models import Competition, Match, Player, PlayerStats, StandingRow, Team
+from app.core.datetime_utils import utc_iso
 from app.schemas import SyncResponse
 from app.services.sofascore import sync_teams_and_players
 
@@ -12,7 +13,7 @@ router = APIRouter(prefix='/sofascore', tags=['sofascore'])
 
 
 def _dt(value):
-    return value.isoformat() if value else None
+    return utc_iso(value)
 
 
 def _team_dict(team: Team | None):

@@ -34,7 +34,7 @@ def _service(db: Session) -> AIAnalysisService:
 def _handle_error(exc: AIAnalysisError) -> HTTPException:
     message = str(exc)
     if 'não configurada' in message:
-        return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=message)
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
     if 'não encontrado' in message or 'insuficientes' in message:
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
     if 'Informe' in message or 'máximo' in message or 'Compare' in message:

@@ -9,6 +9,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.datetime_utils import utc_iso
 from app.models import Competition, Match, Player, PlayerStats, StandingRow, Team
 
 
@@ -226,10 +227,11 @@ class AIAnalysisService:
         return {'scope': 'dashboard', 'entity_id': competition_id, 'title': 'Insight geral com IA', 'analysis': analysis, 'context': context}
 
     def _generate(self, title: str, context: dict[str, Any], task: str) -> str:
-        if not settings.OPENAI_API_KEY:
-            raise AIAnalysisError('OPENAI_API_KEY não configurada no ambiente do backend')
+        api_key = settings.OPENAI_API_KEY.strip()
+        if not api_key:
+            raise AIAnalysisError('OPENAI_API_KEY não configurada no backend. Edite o .env do servidor e recrie o container com docker compose up -d --build backend.')
 
-        client_kwargs: dict[str, Any] = {'api_key': settings.OPENAI_API_KEY}
+        client_kwargs: dict[str, Any] = {'api_key': api_key}
         if settings.OPENAI_BASE_URL:
             client_kwargs['base_url'] = settings.OPENAI_BASE_URL
         client = OpenAI(**client_kwargs)
@@ -296,7 +298,7 @@ class AIAnalysisService:
 
     @staticmethod
     def _dt(value: datetime | None) -> str | None:
-        return value.isoformat() if value else None
+        return utc_iso(value)
 
     def _competition_dict(self, competition: Competition | None) -> dict[str, Any] | None:
         if not competition:
@@ -405,5 +407,5 @@ class AIAnalysisService:
         if isinstance(value, list):
             return [self._json_safe(item) for item in value]
         if isinstance(value, datetime):
-            return value.isoformat()
+            return utc_iso(value)
         return value
