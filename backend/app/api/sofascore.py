@@ -1,11 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_superuser
 from app.database import SessionLocal, get_db
 from app.models import CollectionRun, Competition, Match, Player, PlayerStats, StandingRow, Team
-from app.core.datetime_utils import utc_iso
+from app.core.datetime_utils import utc_iso, utc_now_naive
 from app.schemas import SyncResponse
 from app.services.sofascore import sync_teams_and_players
 
@@ -177,11 +177,21 @@ def _run_sofascore_sync_background() -> None:
 
 @router.post('/sync', response_model=SyncResponse)
 def sync(background_tasks: BackgroundTasks, _: object = Depends(get_superuser), db: Session = Depends(get_db)):
+    stale_limit = utc_now_naive() - timedelta(minutes=45)
+    stale_runs = db.query(CollectionRun).filter(CollectionRun.status == 'running', CollectionRun.started_at < stale_limit).all()
+    for stale in stale_runs:
+        stale.status = 'error'
+        stale.finished_at = utc_now_naive()
+        stale.message = (stale.message or 'Sincronização sem conclusão registrada.') + ' Marcada como órfã automaticamente após 45 minutos sem finalizar.'
+        db.add(stale)
+    if stale_runs:
+        db.commit()
+
     running = db.query(CollectionRun).filter(CollectionRun.status == 'running').first()
     if running:
         return SyncResponse(status='running', message='Já existe uma sincronização em andamento. Acompanhe a conclusão pelos logs ou pelo status no dashboard.')
     background_tasks.add_task(_run_sofascore_sync_background)
-    return SyncResponse(status='accepted', message='Sincronização iniciada em segundo plano. Atualize o dashboard em alguns minutos para acompanhar Série A, Série B, Copa do Brasil e Copa do Mundo.')
+    return SyncResponse(status='accepted', message='Sincronização iniciada em segundo plano. Primeiro serão gravadas competições, tabelas e jogos; depois serão coletados elencos e estatísticas.')
 
 
 @router.get('/competitions')

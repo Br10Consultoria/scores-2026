@@ -347,10 +347,19 @@ def sync_teams_and_players(db: Session) -> str:
     client = SofaScoreClient()
     competitions_count = standings_count = teams_count = players_count = matches_count = 0
     warnings: list[str] = []
+    player_queue: list[tuple[dict, int, list[int]]] = []
+
+    def update_progress(message: str) -> None:
+        run.message = message
+        db.add(run)
+        db.commit()
+
     try:
+        update_progress('Coleta iniciada: gravando competições, tabelas e jogos antes dos elencos.')
+
         for meta in COMPETITIONS:
             comp_name = meta['name']
-            print(f'[SofaScore] Iniciando coleta: {comp_name} ({meta["id"]}/{meta["season_id"]})', flush=True)
+            print(f'[SofaScore] Iniciando coleta estrutural: {comp_name} ({meta["id"]}/{meta["season_id"]})', flush=True)
             try:
                 comp = _upsert_competition(db, meta)
                 competitions_count += 1
@@ -371,22 +380,47 @@ def sync_teams_and_players(db: Session) -> str:
                 print(f'[SofaScore] {comp_name}: {len(teams_by_id)} times e {match_rows} jogos sincronizados.', flush=True)
 
                 if meta.get('collect_players', True):
-                    for team in teams_by_id.values():
-                        try:
-                            players_count += _sync_players(db, client, team, comp)
-                        except Exception as exc:
-                            db.rollback()
-                            warning = f'{comp_name}/{team.name}: falha ao coletar elenco ou estatísticas ({exc})'
-                            warnings.append(warning)
-                            print(f'[SofaScore][WARN] {warning}', flush=True)
+                    player_queue.append((meta, comp.id, sorted(teams_by_id.keys())))
                 else:
                     print(f'[SofaScore] {comp_name}: coleta de elencos desativada para reduzir duplicidade e carga.', flush=True)
+
+                update_progress(
+                    f'Coleta estrutural em andamento: {competitions_count}/{len(COMPETITIONS)} competições, '
+                    f'{standings_count} linhas de tabela e {matches_count} jogos gravados.'
+                )
             except Exception as exc:
                 db.rollback()
-                warning = f'{comp_name}: falha na coleta da competição ({exc})'
+                warning = f'{comp_name}: falha na coleta estrutural da competição ({exc})'
                 warnings.append(warning)
                 print(f'[SofaScore][WARN] {warning}', flush=True)
                 continue
+
+        update_progress(
+            f'Coleta estrutural concluída: {competitions_count} competições, {standings_count} linhas de tabela e '
+            f'{matches_count} jogos gravados. Iniciando elencos e estatísticas.'
+        )
+
+        for meta, competition_id, team_ids in player_queue:
+            comp_name = meta['name']
+            comp = db.get(Competition, competition_id)
+            if not comp:
+                continue
+            for index, team_id in enumerate(team_ids, start=1):
+                team = db.get(Team, team_id)
+                if not team:
+                    continue
+                try:
+                    players_count += _sync_players(db, client, team, comp)
+                    if index % 5 == 0 or index == len(team_ids):
+                        update_progress(
+                            f'Elencos em andamento: {comp_name} {index}/{len(team_ids)} times; '
+                            f'{players_count} jogadores atualizados. Jogos já gravados: {matches_count}.'
+                        )
+                except Exception as exc:
+                    db.rollback()
+                    warning = f'{comp_name}/{team.name}: falha ao coletar elenco ou estatísticas ({exc})'
+                    warnings.append(warning)
+                    print(f'[SofaScore][WARN] {warning}', flush=True)
 
         run.status = 'success' if not warnings else 'success_with_warnings'
         warning_text = f' Avisos: {"; ".join(warnings[:8])}' if warnings else ''
