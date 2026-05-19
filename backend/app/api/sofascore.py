@@ -150,7 +150,57 @@ def _stats_sort_value(stats: PlayerStats | None, sort: str):
         return stats.assists
     if sort == 'matches':
         return stats.matches
+    if sort == 'shots':
+        return stats.shots
+    if sort == 'shots_on_target':
+        return stats.shots_on_target
+    if sort == 'key_passes':
+        return stats.key_passes
+    if sort == 'big_chances_created':
+        return stats.big_chances_created
+    if sort in _EXTRA_STAT_FIELDS:
+        return _raw_number(stats.raw_data, _EXTRA_STAT_FIELDS[sort])
     return None
+
+
+_EXTRA_STAT_FIELDS = {
+    'penalty_goals': ('penaltyGoals', 'penaltyGoal', 'goalsFromPenalty', 'penaltiesScored'),
+    'headed_goals': ('headedGoals', 'headerGoals', 'goalsFromHeader'),
+    'free_kick_goals': ('freeKickGoals', 'goalsFromFreeKick'),
+    'left_foot_goals': ('leftFootGoals', 'goalsFromLeftFoot'),
+    'right_foot_goals': ('rightFootGoals', 'goalsFromRightFoot'),
+    'big_chances_missed': ('bigChancesMissed',),
+    'successful_dribbles': ('successfulDribbles', 'accurateDribbles'),
+    'duels_won': ('duelsWon',),
+    'aerial_duels_won': ('aerialDuelsWon',),
+    'penalties_won': ('penaltiesWon',),
+    'penalties_committed': ('penaltiesCommitted',),
+    'errors_leading_to_goal': ('errorsLeadToGoal', 'errorLeadToGoal'),
+}
+
+
+def _raw_number(raw: dict | None, aliases: tuple[str, ...]) -> float | int | None:
+    if not isinstance(raw, dict):
+        return None
+    for key in aliases:
+        value = raw.get(key)
+        if value is None:
+            continue
+        try:
+            number = float(value)
+            return int(number) if number.is_integer() else number
+        except Exception:
+            continue
+    return None
+
+
+def _extra_stats(raw: dict | None) -> dict:
+    extras = {}
+    for name, aliases in _EXTRA_STAT_FIELDS.items():
+        value = _raw_number(raw, aliases)
+        if value is not None:
+            extras[name] = value
+    return extras
 
 
 def _stats_dict(stats: PlayerStats | None):
@@ -176,6 +226,7 @@ def _stats_dict(stats: PlayerStats | None):
         'goals_conceded': stats.goals_conceded,
         'yellow_cards': stats.yellow_cards,
         'red_cards': stats.red_cards,
+        'extra': _extra_stats(stats.raw_data),
         'competition_id': stats.competition_id,
         'season_id': stats.season_id,
         'updated_at': _dt(stats.updated_at),
@@ -319,7 +370,7 @@ def list_players(
     team_id: int | None = None,
     competition_id: int | None = None,
     min_rating: float | None = None,
-    sort: str = Query('name', pattern='^(name|rating|goals|assists|matches|age)$'),
+    sort: str = Query('name', pattern='^(name|rating|goals|assists|matches|age|shots|shots_on_target|key_passes|big_chances_created|penalty_goals|headed_goals|free_kick_goals|left_foot_goals|right_foot_goals)$'),
     limit: int = Query(100, le=1000),
     _: object = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -343,7 +394,7 @@ def list_players(
             continue
         enriched.append((player, team_name, stats))
 
-    if sort in {'rating', 'goals', 'assists', 'matches'}:
+    if sort in {'rating', 'goals', 'assists', 'matches', 'shots', 'shots_on_target', 'key_passes', 'big_chances_created', 'penalty_goals', 'headed_goals', 'free_kick_goals', 'left_foot_goals', 'right_foot_goals'}:
         enriched.sort(key=lambda row: (_stats_sort_value(row[2], sort) is None, -float(_stats_sort_value(row[2], sort) or 0), row[0].name.lower()))
     elif sort == 'age':
         enriched.sort(key=lambda row: (row[0].age is None, row[0].age or 999, row[0].name.lower()))
@@ -425,3 +476,68 @@ def compare_players(ids: str, competition_id: int | None = None, _: object = Dep
     player_ids = [int(x) for x in ids.split(',') if x.strip().isdigit()]
     rows = db.query(Player, Team.name.label('team_name')).outerjoin(Team, Team.team_id == Player.team_id).filter(Player.player_id.in_(player_ids)).all()
     return [_player_dict(player, team_name, _stats_for_player(db, player.player_id, competition_id)) for player, team_name in rows]
+
+
+def _team_comparison_stats(db: Session, team: Team, competition_id: int | None = None) -> dict:
+    rows = (
+        db.query(Player, PlayerStats)
+        .join(PlayerStats, PlayerStats.player_id == Player.player_id)
+        .filter(Player.team_id == team.team_id)
+    )
+    if competition_id:
+        rows = rows.filter(PlayerStats.competition_id == competition_id)
+    player_stats = rows.all()
+
+    def total(attr: str) -> int:
+        return int(sum((getattr(stats, attr) or 0) for _, stats in player_stats))
+
+    ratings = [float(stats.rating) for _, stats in player_stats if stats.rating is not None]
+    extras: dict[str, float | int] = {}
+    for _, stats in player_stats:
+        for name, aliases in _EXTRA_STAT_FIELDS.items():
+            value = _raw_number(stats.raw_data, aliases)
+            if value is not None:
+                extras[name] = extras.get(name, 0) + value
+    extras = {key: int(value) if float(value).is_integer() else value for key, value in extras.items()}
+
+    top_players = sorted(
+        [
+            _player_dict(player, team.name, stats)
+            for player, stats in player_stats
+        ],
+        key=lambda p: (p.get('stats') or {}).get('rating') or 0,
+        reverse=True,
+    )[:8]
+
+    return {
+        'team': _team_dict(team),
+        'players_with_stats': len(player_stats),
+        'avg_rating': round(sum(ratings) / len(ratings), 2) if ratings else None,
+        'matches_sum': total('matches'),
+        'goals': total('goals'),
+        'assists': total('assists'),
+        'shots': total('shots'),
+        'shots_on_target': total('shots_on_target'),
+        'big_chances_created': total('big_chances_created'),
+        'key_passes': total('key_passes'),
+        'accurate_passes': total('accurate_passes'),
+        'tackles': total('tackles'),
+        'interceptions': total('interceptions'),
+        'clearances': total('clearances'),
+        'saves': total('saves'),
+        'clean_sheets': total('clean_sheets'),
+        'goals_conceded': total('goals_conceded'),
+        'yellow_cards': total('yellow_cards'),
+        'red_cards': total('red_cards'),
+        'extra': extras,
+        'top_players': top_players,
+    }
+
+
+@router.get('/compare/teams')
+def compare_teams(ids: str, competition_id: int | None = None, _: object = Depends(get_current_user), db: Session = Depends(get_db)):
+    team_ids = [int(x) for x in ids.split(',') if x.strip().isdigit()]
+    if not team_ids:
+        return []
+    teams = db.query(Team).filter(Team.team_id.in_(team_ids[:8])).order_by(Team.name.asc()).all()
+    return [_team_comparison_stats(db, team, competition_id) for team in teams]
