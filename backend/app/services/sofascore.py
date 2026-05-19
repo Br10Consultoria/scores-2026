@@ -316,16 +316,27 @@ def _sync_matches(db: Session, client: SofaScoreClient, comp: Competition, meta:
     count = 0
     teams_by_id: dict[int, Team] = {}
     set_primary = bool(meta.get('set_primary_competition', True))
+
+    def remember_team(raw_team: dict | None) -> Team | None:
+        if not raw_team:
+            return None
+        team_id = raw_team.get('id')
+        if not team_id:
+            return None
+        team_id = int(team_id)
+        if team_id in teams_by_id:
+            return teams_by_id[team_id]
+        team = _upsert_team(db, raw_team, comp.id, set_primary)
+        if team:
+            teams_by_id[team.team_id] = team
+        return team
+
     for raw in client.get_events(int(meta['id']), int(meta['season_id'])):
         match_id = raw.get('id')
         if not match_id:
             continue
-        home = _upsert_team(db, raw.get('homeTeam') or {}, comp.id, set_primary) if raw.get('homeTeam') else None
-        away = _upsert_team(db, raw.get('awayTeam') or {}, comp.id, set_primary) if raw.get('awayTeam') else None
-        if home:
-            teams_by_id[home.team_id] = home
-        if away:
-            teams_by_id[away.team_id] = away
+        home = remember_team(raw.get('homeTeam'))
+        away = remember_team(raw.get('awayTeam'))
         match = db.get(Match, int(match_id)) or Match(match_id=int(match_id))
         match.competition_id = comp.id
         match.season_id = int(meta['season_id'])
