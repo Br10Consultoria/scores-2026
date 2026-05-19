@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { Activity, ArrowLeft, BarChart3, CalendarDays, Download, Home, LineChart, Lock, RefreshCw, Search, ShieldCheck, Smartphone, Sparkles, Table2, Trophy, Users, X } from 'lucide-react'
+import { Activity, ArrowLeft, BarChart3, CalendarDays, Home, LineChart, Lock, RefreshCw, Search, ShieldCheck, Smartphone, Sparkles, Table2, Trophy, Users, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart as RLineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import './styles.css'
 
@@ -36,7 +36,6 @@ function App() {
   const [password, setPassword] = React.useState('')
   const [code, setCode] = React.useState('')
   const [tab, setTab] = React.useState<Tab>('visao')
-  const [previousTab, setPreviousTab] = React.useState<Tab>('visao')
   const [dashboard, setDashboard] = React.useState<Dashboard | null>(null)
   const [competitions, setCompetitions] = React.useState<Competition[]>([])
   const [teams, setTeams] = React.useState<Team[]>([])
@@ -110,7 +109,6 @@ function App() {
   }
 
   function changeTab(next: Tab) {
-    setPreviousTab(tab)
     setTab(next)
     setSelectedTeam(null)
     setSelectedPlayer(null)
@@ -119,15 +117,7 @@ function App() {
   function goHome() {
     setSelectedTeam(null)
     setSelectedPlayer(null)
-    setPreviousTab('visao')
     setTab('visao')
-  }
-
-  function goBack() {
-    if (selectedPlayer) { setSelectedPlayer(null); return }
-    if (selectedTeam) { setSelectedTeam(null); return }
-    setTab(previousTab || 'visao')
-    setPreviousTab('visao')
   }
 
   async function openTeam(id: number) { setSelectedPlayer(null); setSelectedTeam(await request(`/sofascore/teams/${id}`)) }
@@ -154,7 +144,6 @@ function App() {
     }
   }
 
-  const analyzeDashboard = () => runAI(`/ai/dashboard-insight${competitionId ? `?competition_id=${competitionId}` : ''}`)
   const analyzeTeam = (id: number) => runAI(`/ai/team/${id}`)
   const analyzePlayer = (id: number) => runAI(`/ai/player/${id}`)
   const analyzeMatch = (id: number) => runAI(`/ai/match/${id}`)
@@ -163,16 +152,16 @@ function App() {
   React.useEffect(() => { loadData().catch(err => setMessage(err.message)) }, [token])
 
   if (!token) {
-    return <main className="min-h-screen bg-slate-950 text-white grid place-items-center p-6">
-      <section className="w-full max-w-md rounded-3xl bg-white/10 border border-white/10 shadow-2xl p-8 backdrop-blur">
-        <div className="flex items-center gap-3 mb-8"><div className="p-3 bg-sky-500 rounded-2xl"><ShieldCheck /></div><div><h1 className="text-2xl font-bold">Scores 2026</h1><p className="text-slate-300">Acesso seguro ao painel SofaScore</p></div></div>
-        {!tempToken ? <form onSubmit={login} className="space-y-4">
+    return <main className="login-screen">
+      <section className="login-card">
+        <div className="login-brand"><div className="login-icon"><ShieldCheck size={18}/></div><div><h1>Scores 2026</h1><p>Acesso seguro ao painel SofaScore</p></div></div>
+        {!tempToken ? <form onSubmit={login} className="compact-form">
           <label className="block"><span>Usuário ou e-mail</span><input className="input" value={username} onChange={e => setUsername(e.target.value)} /></label>
           <label className="block"><span>Senha</span><input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} /></label>
-          <button className="btn" type="submit"><Lock size={18}/> Entrar</button>
-        </form> : <form onSubmit={verify2FA} className="space-y-4">
+          <button className="btn" type="submit"><Lock size={16}/> Entrar</button>
+        </form> : <form onSubmit={verify2FA} className="compact-form">
           <label className="block"><span>Código 2FA</span><input className="input tracking-widest" value={code} onChange={e => setCode(e.target.value)} /></label>
-          <button className="btn" type="submit"><Smartphone size={18}/> Validar 2FA</button>
+          <button className="btn" type="submit"><Smartphone size={16}/> Validar 2FA</button>
         </form>}
         {message && <p className="mt-4 text-sm text-amber-200">{message}</p>}
       </section>
@@ -182,10 +171,10 @@ function App() {
   const latest = dashboard?.meta?.latest_data_update || dashboard?.meta?.last_collection_finished_at
 
   return <main className="min-h-screen bg-slate-100 text-slate-900">
-    <header className="bg-slate-950 text-white px-6 py-5 sticky top-0 z-20 shadow-lg">
-      <div className="max-w-7xl mx-auto flex flex-col xl:flex-row justify-between gap-4">
-        <div><h1 className="text-2xl font-bold">Scores 2026 Intelligence</h1><p className="text-slate-300">Séries A/B, Copa do Brasil, Copa do Mundo, SofaScore, estatísticas, Telegram e IA</p><p className="text-xs text-sky-200 mt-1">Última atualização: {formatDate(latest) || 'aguardando coleta'}</p></div>
-        <div className="flex flex-wrap gap-3"><button onClick={goHome} className="secondary muted"><Home size={18}/> Home</button><button onClick={goBack} className="secondary muted"><ArrowLeft size={18}/> Voltar</button><button onClick={sync} className="secondary" disabled={loading}><RefreshCw size={18}/> {loading ? 'Sincronizando...' : 'Sincronizar'}</button><button onClick={analyzeDashboard} className="secondary" disabled={aiLoading}><Sparkles size={18}/> {aiLoading ? 'Analisando...' : 'Insight IA'}</button><a className="secondary muted" href={`${API_URL}/reports/players.csv`} target="_blank"><Download size={18}/> CSV</a><button onClick={() => {localStorage.removeItem('token'); setToken('')}} className="danger">Sair</button></div>
+    <header className="app-header">
+      <div className="header-inner">
+        <div className="header-title"><h1>Scores 2026 Intelligence</h1><p>Séries A/B, Copa do Brasil, Copa do Mundo e SofaScore</p><p>Última atualização: {formatDate(latest) || 'aguardando coleta'}</p></div>
+        <div className="header-actions"><button type="button" onClick={goHome} className="secondary muted"><Home size={16}/> Home</button><button type="button" onClick={sync} className="secondary" disabled={loading}><RefreshCw size={16}/> {loading ? 'Sincronizando...' : 'Sincronizar'}</button><button type="button" onClick={() => {localStorage.removeItem('token'); setToken('')}} className="danger">Sair</button></div>
       </div>
     </header>
     <section className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
@@ -193,7 +182,7 @@ function App() {
       <Filters competitions={competitions} teams={teams} competitionId={competitionId} setCompetitionId={setCompetitionId} teamId={teamId} setTeamId={setTeamId} month={month} setMonth={setMonth} sort={sort} setSort={setSort} query={query} setQuery={setQuery} onApply={loadData}/>
       <AIInsight result={aiResult} loading={aiLoading} onClear={() => setAiResult(null)} />
       <nav className="tabs"><TabButton active={tab==='visao'} onClick={() => changeTab('visao')} icon={<BarChart3 size={18}/>} label="Visão geral"/><TabButton active={tab==='tabelas'} onClick={() => changeTab('tabelas')} icon={<Table2 size={18}/>} label="Tabelas"/><TabButton active={tab==='jogadores'} onClick={() => changeTab('jogadores')} icon={<Users size={18}/>} label="Jogadores"/><TabButton active={tab==='times'} onClick={() => changeTab('times')} icon={<Trophy size={18}/>} label="Times"/><TabButton active={tab==='jogos'} onClick={() => changeTab('jogos')} icon={<CalendarDays size={18}/>} label="Jogos"/><TabButton active={tab==='comparar'} onClick={() => changeTab('comparar')} icon={<LineChart size={18}/>} label="Comparar"/></nav>
-      {tab === 'visao' && <Overview dashboard={dashboard} openPlayer={openPlayer} analyzeDashboard={analyzeDashboard} aiLoading={aiLoading}/>} 
+      {tab === 'visao' && <Overview dashboard={dashboard} openPlayer={openPlayer}/>} 
       {tab === 'tabelas' && <Standings rows={standings} openTeam={openTeam}/>} 
       {tab === 'jogadores' && <Players players={players} openPlayer={openPlayer} compareIds={compareIds} setCompareIds={setCompareIds} compare={compare} analyzePlayer={analyzePlayer}/>} 
       {tab === 'times' && <Teams teams={teams} openTeam={openTeam} analyzeTeam={analyzeTeam}/>} 
@@ -216,7 +205,7 @@ function AIInsight({ result, loading, onClear }: { result: AIResult | null; load
   </Panel>
 }
 
-function Overview({ dashboard, openPlayer, analyzeDashboard, aiLoading }: any) { const coverage = (dashboard?.competitions || []).map((c: Competition) => `${c.name}: ${c.teams_count ?? 0} times`).join(' · '); return <div className="space-y-6"><div className="toolbar"><span className="small">Visão consolidada do banco SofaScore. {coverage || 'As competições aparecem após a sincronização.'}</span><button className="secondary light" onClick={analyzeDashboard} disabled={aiLoading}><Sparkles size={18}/> Analisar dashboard com IA</button></div><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"><Card icon={<Trophy/>} label="Times coletados" value={dashboard?.teams ?? 0}/><Card icon={<Users/>} label="Jogadores" value={dashboard?.players ?? 0}/><Card icon={<Activity/>} label="Jogos" value={dashboard?.matches ?? 0}/><Card icon={<BarChart3/>} label="Registros" value={dashboard?.stats_rows ?? 0}/><Card icon={<ShieldCheck/>} label="Rating médio" value={dashboard?.avg_rating ?? '-'}/></div><div className="grid grid-cols-1 xl:grid-cols-2 gap-6"><Panel title="Distribuição por posição"><ChartLegend text="Mostra a quantidade de atletas por posição cadastrada."/><ResponsiveContainer width="100%" height={300}><BarChart data={dashboard?.positions || []}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="position"/><YAxis/><Tooltip/><Legend/><Bar name="Total de jogadores" dataKey="total" fill="#0284c7" radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></Panel><Panel title="Jogos por mês"><ChartLegend text="Quantidade de partidas coletadas por mês."/><ResponsiveContainer width="100%" height={300}><RLineChart data={dashboard?.monthly_matches || []}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line name="Jogos" type="monotone" dataKey="total" stroke="#0f172a" strokeWidth={3}/></RLineChart></ResponsiveContainer></Panel></div><div className="grid grid-cols-1 lg:grid-cols-3 gap-6"><Ranking title="Top rating" rows={dashboard?.top_rating || []} field="rating" openPlayer={openPlayer}/><Ranking title="Top gols" rows={dashboard?.top_goals || []} field="goals" openPlayer={openPlayer}/><Ranking title="Top assistências" rows={dashboard?.top_assists || []} field="assists" openPlayer={openPlayer}/></div><Panel title="Metadados da coleta"><p>{dashboard?.meta?.legend}</p><p className="small">Última mensagem: {dashboard?.meta?.last_collection_message || '-'}</p></Panel></div> }
+function Overview({ dashboard, openPlayer }: any) { const coverage = (dashboard?.competitions || []).map((c: Competition) => `${c.name}: ${c.teams_count ?? 0} times`).join(' · '); return <div className="space-y-6"><div className="toolbar compact"><span className="small">Visão consolidada do banco SofaScore. {coverage || 'As competições aparecem após a sincronização.'}</span></div><div className="dashboard-cards"><Card icon={<Trophy/>} label="Times coletados" value={dashboard?.teams ?? 0}/><Card icon={<Users/>} label="Jogadores" value={dashboard?.players ?? 0}/><Card icon={<Activity/>} label="Jogos" value={dashboard?.matches ?? 0}/><Card icon={<BarChart3/>} label="Registros" value={dashboard?.stats_rows ?? 0}/><Card icon={<ShieldCheck/>} label="Rating médio" value={dashboard?.avg_rating ?? '-'}/></div><div className="grid grid-cols-1 xl:grid-cols-2 gap-6"><Panel title="Distribuição por posição"><ChartLegend text="Mostra a quantidade de atletas por posição cadastrada."/><ResponsiveContainer width="100%" height={300}><BarChart data={dashboard?.positions || []}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="position"/><YAxis/><Tooltip/><Legend/><Bar name="Total de jogadores" dataKey="total" fill="#0284c7" radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></Panel><Panel title="Jogos por mês"><ChartLegend text="Quantidade de partidas coletadas por mês."/><ResponsiveContainer width="100%" height={300}><RLineChart data={dashboard?.monthly_matches || []}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line name="Jogos" type="monotone" dataKey="total" stroke="#0f172a" strokeWidth={3}/></RLineChart></ResponsiveContainer></Panel></div><div className="grid grid-cols-1 lg:grid-cols-3 gap-6"><Ranking title="Top rating" rows={dashboard?.top_rating || []} field="rating" openPlayer={openPlayer}/><Ranking title="Top gols" rows={dashboard?.top_goals || []} field="goals" openPlayer={openPlayer}/><Ranking title="Top assistências" rows={dashboard?.top_assists || []} field="assists" openPlayer={openPlayer}/></div><Panel title="Metadados da coleta"><p>{dashboard?.meta?.legend}</p><p className="small">Última mensagem: {dashboard?.meta?.last_collection_message || '-'}</p></Panel></div> }
 function Standings({ rows, openTeam }: any) { return <Panel title="Tabelas disponíveis: Séries A/B e Copa do Mundo"><ChartLegend text="Competições sem standings, como a Copa do Brasil, aparecem principalmente em Jogos e Times. Clique no time para abrir elenco, jogos, posição, forma e rating médio."/><div className="overflow-x-auto"><table className="table"><thead><tr><th>Pos.</th><th>Time</th><th>Competição</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>Pts</th><th>Forma</th><th>Atualizado</th></tr></thead><tbody>{rows.map((r: any, i: number) => <tr key={i}><td>{r.position}</td><td><button className="link team-cell" onClick={() => openTeam(r.team.team_id)}><Logo src={r.team.logo_url}/>{r.team.name}</button></td><td>{r.competition_name}</td><td>{r.matches ?? '-'}</td><td>{r.wins ?? '-'}</td><td>{r.draws ?? '-'}</td><td>{r.losses ?? '-'}</td><td>{r.scores_for ?? '-'}</td><td>{r.scores_against ?? '-'}</td><td>{r.score_diff ?? '-'}</td><td><strong>{r.points ?? '-'}</strong></td><td>{r.form || '-'}</td><td>{formatDate(r.updated_at)}</td></tr>)}</tbody></table></div></Panel> }
 function Players({ players, openPlayer, compareIds, setCompareIds, compare, analyzePlayer }: any) {
   const toggle = (id: number) => setCompareIds((ids: number[]) => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id].slice(-4))

@@ -120,3 +120,228 @@ button:disabled,
 .table td:nth-child(11) {
   min-width: 6rem;
 }
+
+/* Layout compacto solicitado */
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: #020617;
+  color: #fff;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 18rem;
+  border-radius: 1.35rem;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.10);
+  box-shadow: 0 18px 45px rgba(2,6,23,.42);
+  padding: 1.15rem;
+  backdrop-filter: blur(14px);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  margin-bottom: 1.1rem;
+}
+
+.login-brand h1 {
+  font-size: 1.15rem;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.login-brand p {
+  font-size: .78rem;
+  color: #cbd5e1;
+}
+
+.login-icon {
+  width: 2.15rem;
+  height: 2.15rem;
+  display: grid;
+  place-items: center;
+  border-radius: .85rem;
+  background: #0ea5e9;
+  flex-shrink: 0;
+}
+
+.compact-form {
+  display: grid;
+  gap: .75rem;
+}
+
+.compact-form label span {
+  font-size: .82rem;
+  font-weight: 600;
+}
+
+.login-card .input {
+  margin-top: .35rem;
+  min-height: 2.55rem;
+  border-radius: .85rem;
+  padding: .55rem .8rem;
+  font-size: .9rem;
+}
+
+.login-card .btn {
+  min-height: 2.55rem;
+  border-radius: .85rem;
+  padding: .55rem .8rem;
+  font-size: .9rem;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: #020617;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(15,23,42,.22);
+  padding: .75rem 1rem;
+}
+
+.header-inner {
+  max-width: 80rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+
+.header-title {
+  min-width: 0;
+}
+
+.header-title h1 {
+  font-size: 1.2rem;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.header-title p {
+  font-size: .82rem;
+  color: #cbd5e1;
+  line-height: 1.25;
+}
+
+.header-title p:last-child {
+  color: #bae6fd;
+  font-size: .72rem;
+  margin-top: .15rem;
+}
+
+.header-actions {
+  position: relative;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: .5rem;
+  flex-shrink: 0;
+}
+
+.header-actions .secondary,
+.header-actions .danger {
+  min-height: 2.35rem;
+  border-radius: .8rem;
+  padding: .45rem .75rem;
+  font-size: .9rem;
+  pointer-events: auto;
+}
+
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.dashboard-cards .card {
+  min-height: 4.8rem;
+  padding: .8rem 1rem;
+  border-radius: 1rem;
+  gap: .8rem;
+}
+
+.dashboard-cards .card svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.dashboard-cards .card span {
+  font-size: .78rem;
+  line-height: 1.15;
+}
+
+.dashboard-cards .card strong {
+  font-size: 1.65rem;
+  line-height: 1.05;
+}
+
+.toolbar.compact {
+  margin-bottom: .75rem;
+}
+
+button,
+a.secondary,
+.tab,
+.rank,
+.team-card-main,
+.team-cell,
+.checkbox-hit,
+.link {
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+button,
+a,
+input,
+select {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 900px) {
+  .header-inner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .header-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .dashboard-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .login-card {
+    max-width: 17rem;
+  }
+
+  .header-title h1 {
+    font-size: 1.05rem;
+  }
+
+  .header-title p {
+    font-size: .76rem;
+  }
+
+  .header-actions .secondary,
+  .header-actions .danger {
+    flex: 1 1 auto;
+  }
+
+  .dashboard-cards {
+    grid-template-columns: 1fr;
+  }
+}
