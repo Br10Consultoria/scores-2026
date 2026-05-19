@@ -63,3 +63,60 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSyst
 .info span { @apply block text-xs uppercase tracking-wide text-slate-500 font-bold mb-1; }
 .info strong { @apply text-lg text-slate-950; }
 @media (max-width: 640px) { .table th, .table td { @apply px-3 py-2; } .secondary, .danger { @apply px-3 py-2; } }
+
+.table .selectable-row {
+  cursor: pointer;
+}
+
+.table .selectable-row:hover td {
+  background: #f8fafc;
+}
+
+.table .selectable-row.selected td {
+  background: #e0f2fe;
+}
+
+.checkbox-hit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  min-width: 7rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-hit input {
+  width: 1.1rem;
+  height: 1.1rem;
+  cursor: pointer;
+}
+
+.checkbox-hit span {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+button:disabled,
+.secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.table .link,
+.table button {
+  position: relative;
+  z-index: 1;
+}
+
+.table th:nth-child(2),
+.table td:nth-child(2),
+.table th:nth-child(3),
+.table td:nth-child(3) {
+  min-width: 12rem;
+}
+
+.table th:nth-child(11),
+.table td:nth-child(11) {
+  min-width: 6rem;
+}

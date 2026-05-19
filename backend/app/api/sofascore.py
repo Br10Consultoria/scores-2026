@@ -121,6 +121,38 @@ def _team_ids_for_competition(db: Session, competition_id: int | None = None) ->
     return team_ids
 
 
+def _stats_for_player(db: Session, player_id: int, competition_id: int | None = None) -> PlayerStats | None:
+    if competition_id:
+        stats = (
+            db.query(PlayerStats)
+            .filter(PlayerStats.player_id == player_id, PlayerStats.competition_id == competition_id)
+            .order_by(PlayerStats.updated_at.desc())
+            .first()
+        )
+        if stats:
+            return stats
+    return (
+        db.query(PlayerStats)
+        .filter(PlayerStats.player_id == player_id)
+        .order_by(PlayerStats.rating.desc().nullslast(), PlayerStats.updated_at.desc())
+        .first()
+    )
+
+
+def _stats_sort_value(stats: PlayerStats | None, sort: str):
+    if not stats:
+        return None
+    if sort == 'rating':
+        return stats.rating
+    if sort == 'goals':
+        return stats.goals
+    if sort == 'assists':
+        return stats.assists
+    if sort == 'matches':
+        return stats.matches
+    return None
+
+
 def _stats_dict(stats: PlayerStats | None):
     if not stats:
         return None
@@ -144,6 +176,8 @@ def _stats_dict(stats: PlayerStats | None):
         'goals_conceded': stats.goals_conceded,
         'yellow_cards': stats.yellow_cards,
         'red_cards': stats.red_cards,
+        'competition_id': stats.competition_id,
+        'season_id': stats.season_id,
         'updated_at': _dt(stats.updated_at),
     }
 
@@ -290,7 +324,7 @@ def list_players(
     _: object = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Player, Team.name.label('team_name'), PlayerStats).outerjoin(Team, Team.team_id == Player.team_id).outerjoin(PlayerStats, PlayerStats.player_id == Player.player_id)
+    query = db.query(Player, Team.name.label('team_name')).outerjoin(Team, Team.team_id == Player.team_id)
     if q:
         query = query.filter(Player.name.ilike(f'%{q}%'))
     if position:
@@ -299,31 +333,32 @@ def list_players(
         query = query.filter(Player.team_id == team_id)
     if competition_id:
         team_ids = list(_team_ids_for_competition(db, competition_id)) or [-1]
-        query = query.filter(or_(PlayerStats.competition_id == competition_id, Team.team_id.in_(team_ids)))
-    if min_rating:
-        query = query.filter(PlayerStats.rating >= min_rating)
-    if sort == 'rating':
-        query = query.order_by(PlayerStats.rating.desc().nullslast(), Player.name.asc())
-    elif sort == 'goals':
-        query = query.order_by(PlayerStats.goals.desc().nullslast(), Player.name.asc())
-    elif sort == 'assists':
-        query = query.order_by(PlayerStats.assists.desc().nullslast(), Player.name.asc())
-    elif sort == 'matches':
-        query = query.order_by(PlayerStats.matches.desc().nullslast(), Player.name.asc())
+        query = query.filter(Team.team_id.in_(team_ids))
+
+    rows = query.all()
+    enriched = []
+    for player, team_name in rows:
+        stats = _stats_for_player(db, player.player_id, competition_id)
+        if min_rating and (not stats or stats.rating is None or stats.rating < min_rating):
+            continue
+        enriched.append((player, team_name, stats))
+
+    if sort in {'rating', 'goals', 'assists', 'matches'}:
+        enriched.sort(key=lambda row: (_stats_sort_value(row[2], sort) is None, -float(_stats_sort_value(row[2], sort) or 0), row[0].name.lower()))
     elif sort == 'age':
-        query = query.order_by(Player.age.asc().nullslast(), Player.name.asc())
+        enriched.sort(key=lambda row: (row[0].age is None, row[0].age or 999, row[0].name.lower()))
     else:
-        query = query.order_by(Player.name.asc())
-    rows = query.limit(limit).all()
-    return [_player_dict(player, team_name, stats) for player, team_name, stats in rows]
+        enriched.sort(key=lambda row: row[0].name.lower())
+
+    return [_player_dict(player, team_name, stats) for player, team_name, stats in enriched[:limit]]
 
 
 @router.get('/players/{player_id}')
-def player_detail(player_id: int, _: object = Depends(get_current_user), db: Session = Depends(get_db)):
+def player_detail(player_id: int, competition_id: int | None = None, _: object = Depends(get_current_user), db: Session = Depends(get_db)):
     player = db.get(Player, player_id)
     if not player:
         return {'detail': 'Jogador não encontrado'}
-    stats = db.query(PlayerStats).filter(PlayerStats.player_id == player_id).order_by(PlayerStats.updated_at.desc()).first()
+    stats = _stats_for_player(db, player_id, competition_id)
     return {
         'player': _player_dict(player, player.team.name if player.team else None, stats),
         'team': _team_dict(player.team),
@@ -386,7 +421,7 @@ def matches(
 
 
 @router.get('/compare/players')
-def compare_players(ids: str, _: object = Depends(get_current_user), db: Session = Depends(get_db)):
+def compare_players(ids: str, competition_id: int | None = None, _: object = Depends(get_current_user), db: Session = Depends(get_db)):
     player_ids = [int(x) for x in ids.split(',') if x.strip().isdigit()]
-    rows = db.query(Player, Team.name.label('team_name'), PlayerStats).outerjoin(Team, Team.team_id == Player.team_id).outerjoin(PlayerStats, PlayerStats.player_id == Player.player_id).filter(Player.player_id.in_(player_ids)).all()
-    return [_player_dict(player, team_name, stats) for player, team_name, stats in rows]
+    rows = db.query(Player, Team.name.label('team_name')).outerjoin(Team, Team.team_id == Player.team_id).filter(Player.player_id.in_(player_ids)).all()
+    return [_player_dict(player, team_name, _stats_for_player(db, player.player_id, competition_id)) for player, team_name in rows]

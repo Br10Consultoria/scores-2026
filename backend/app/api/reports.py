@@ -1,7 +1,7 @@
 import csv
 from io import StringIO
 from fastapi import APIRouter, Depends, Response
-from sqlalchemy import desc, func, or_
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -43,7 +43,7 @@ def dashboard(competition_id: int | None = None, _: object = Depends(get_current
         team_id_filter = list(scoped_team_ids) or [-1]
         team_query = team_query.filter(Team.team_id.in_(team_id_filter))
         player_query = player_query.join(Team, Team.team_id == Player.team_id).filter(Team.team_id.in_(team_id_filter))
-        stats_query = stats_query.join(Player, Player.player_id == PlayerStats.player_id).filter(or_(PlayerStats.competition_id == competition_id, Player.team_id.in_(team_id_filter)))
+        stats_query = stats_query.filter(PlayerStats.competition_id == competition_id)
         match_query = match_query.filter(Match.competition_id == competition_id)
         standing_query = standing_query.filter(StandingRow.competition_id == competition_id)
 

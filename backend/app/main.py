@@ -26,6 +26,30 @@ def _ensure_column(table: str, column: str, column_type: str) -> None:
         connection.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {ddl_type}'))
 
 
+def _ensure_player_stats_unique_constraint() -> None:
+    """Atualiza a unicidade de estatísticas para permitir dados separados por competição.
+
+    Versões antigas tinham uma chave única apenas em `(player_id, season_id)`, o que fazia
+    Série A, Série B, Copa do Brasil e Copa do Mundo disputarem o mesmo registro do atleta.
+    """
+    if engine.dialect.name != 'postgresql':
+        return
+    with engine.begin() as connection:
+        connection.execute(text('ALTER TABLE player_stats DROP CONSTRAINT IF EXISTS uq_player_season'))
+        exists = connection.execute(
+            text("""
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'uq_player_season_competition'
+                  AND conrelid = 'player_stats'::regclass
+            """)
+        ).first()
+        if not exists:
+            connection.execute(
+                text('ALTER TABLE player_stats ADD CONSTRAINT uq_player_season_competition UNIQUE (player_id, season_id, competition_id)')
+            )
+
+
 def run_light_migrations() -> None:
     """Aplica migrações simples para instalações que já possuem banco criado.
 
@@ -76,6 +100,7 @@ def run_light_migrations() -> None:
     for table, columns in additions.items():
         for column, column_type in columns:
             _ensure_column(table, column, column_type)
+    _ensure_player_stats_unique_constraint()
     Base.metadata.create_all(bind=engine)
 
 

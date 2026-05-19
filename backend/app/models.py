@@ -70,7 +70,7 @@ class Player(Base):
 
 class PlayerStats(Base):
     __tablename__ = 'player_stats'
-    __table_args__ = (UniqueConstraint('player_id', 'season_id', name='uq_player_season'),)
+    __table_args__ = (UniqueConstraint('player_id', 'season_id', 'competition_id', name='uq_player_season_competition'),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     player_id: Mapped[int] = mapped_column(ForeignKey('players.player_id'), index=True)

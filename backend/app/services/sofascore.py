@@ -275,8 +275,16 @@ def _sync_players(db: Session, client: SofaScoreClient, team: Team, comp: Compet
 
         stats_raw = client.get_player_statistics(int(player_id), comp.id, int(comp.season_id or 0))
         if stats_raw:
-            stats = db.query(PlayerStats).filter(PlayerStats.player_id == int(player_id), PlayerStats.season_id == int(comp.season_id or 0)).first() or PlayerStats(player_id=int(player_id), season_id=int(comp.season_id or 0))
-            stats.competition_id = comp.id
+            stats = (
+                db.query(PlayerStats)
+                .filter(
+                    PlayerStats.player_id == int(player_id),
+                    PlayerStats.season_id == int(comp.season_id or 0),
+                    PlayerStats.competition_id == comp.id,
+                )
+                .first()
+                or PlayerStats(player_id=int(player_id), season_id=int(comp.season_id or 0), competition_id=comp.id)
+            )
             stats.rating = _float(_field(stats_raw, 'rating', 'averageRating'))
             stats.matches = _int(_field(stats_raw, 'appearances', 'matches', 'totalMatches'))
             stats.starts = _int(_field(stats_raw, 'starts'))
