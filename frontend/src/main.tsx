@@ -281,6 +281,7 @@ function Overview({ dashboard, openPlayer, openProjections }: { dashboard:Dashbo
   const sources=dashboard?.meta?.sources||[]
   const hasPlayers=(dashboard?.players||0)>0
   const hasStats=(dashboard?.stats_rows||0)>0
+  const hasForbidden=/403 Forbidden|retornou 403/i.test(dashboard?.meta?.last_collection_message||'')
   return <div className="space-y-6">
     <div className="overview-intro">
       <div><strong>Visão geral das competições</strong><p>{coverage||'Aguardando competições e partidas da primeira coleta.'}</p></div>
@@ -293,13 +294,13 @@ function Overview({ dashboard, openPlayer, openProjections }: { dashboard:Dashbo
       </div></div>
       <div><span className="source-status-icon muted"><Users size={18}/></span><div>
         <strong>{hasStats?'Estatísticas individuais disponíveis':'Estatísticas individuais indisponíveis'}</strong>
-        <p>{hasStats?'Ratings, gols e assistências carregados conforme cobertura da fonte.':'A SofaScore está recusando consultas (HTTP 403); a football-data.org não fornece esses dados no coletor atual.'}</p>
+        <p>{hasStats?'Ratings, gols e assistências carregados conforme cobertura da fonte.':'{hasForbidden?'A SofaScore retornou HTTP 403; a football-data.org não fornece esses dados no coletor atual.':'Ainda não há estatísticas individuais coletadas para este filtro.'}'}</p>
       </div></div>
     </div>
     <div className="dashboard-cards">
       <Card icon={<Trophy/>} label="Times coletados" value={dashboard?.teams ?? 0}/>
       <Card icon={<Activity/>} label="Jogos realizados" value={dashboard?.finished_matches ?? 0}/>
-      <Card icon={<CalendarDays/>} label="Jogos a disputar" value={dashboard?.scheduled_matches ?? 0}/>
+      <Card icon={<CalendarDays/>} label="Jogos não finalizados" value={dashboard?.scheduled_matches ?? 0}/>
       <Card icon={<Users/>} label="Jogadores" value={dashboard?.players ?? 0}/>
       <Card icon={<BarChart3/>} label="Estatísticas de atletas" value={dashboard?.stats_rows ?? 0}/>
     </div>
