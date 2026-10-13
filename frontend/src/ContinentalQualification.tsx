@@ -9,7 +9,7 @@ type Selection = Record<SelectionKey,string>
 type AllocationRow = { team_id:string;team:string;points:number;position:number;competition:string;phase:string|null;reasons:string[] }
 type Allocation = {ready:boolean;status:string;message:string;issues?:string[];regulation:string;ranking_mode?:string;slots:AllocationRow[];counts?:{libertadores:number;sulamericana:number;groups:number;pre:number}}
 type CupPayload = {cups:Record<string,Cup>;allocation:Allocation;auto_selections:Record<string,string|null>;provider_warning:string|null;league_coverage:{teams:number;fixtures:number}}
-type Props = {token:string;apiUrl:string;projectionRanking?:string[]}
+type Props = {token:string;apiUrl:string;projectionRanking?:string[];onSelectionChange?:(value:Selection)=>void}
 const EMPTY:Selection={copa_winner:'',copa_runner:'',libertadores_winner:'',sulamericana_winner:''}
 const OPTIONS:{key:SelectionKey;label:string}[]=[
   {key:'copa_winner',label:'Campeão Copa do Brasil'},
@@ -20,7 +20,7 @@ const OPTIONS:{key:SelectionKey;label:string}[]=[
 const statusName:Record<string,string>={confirmed:'Campeão confirmado',in_progress:'Em andamento',no_data:'Sem jogos',not_configured:'API não configurada',unavailable:'Dados indisponíveis'}
 const destinations:Record<string,string>={libertadores:'Libertadores',sulamericana:'Sul-Americana',serie_b:'Rebaixamento',none:'Sem vaga no cenário'}
 
-export default function ContinentalQualification({token,apiUrl,projectionRanking}:Props){
+export default function ContinentalQualification({token,apiUrl,projectionRanking,onSelectionChange}:Props){
   const [payload,setPayload]=React.useState<CupPayload|null>(null)
   const [selected,setSelected]=React.useState<Selection>({...EMPTY})
   const [allocation,setAllocation]=React.useState<Allocation|null>(null)
@@ -37,15 +37,17 @@ export default function ContinentalQualification({token,apiUrl,projectionRanking
       if(!response.ok) throw new Error(result.detail||'Falha ao consultar copas.')
       setPayload(result);setAllocation(result.allocation)
       const auto=result.auto_selections||{}
-      setSelected({
+      const initial:Selection = {
         copa_winner:auto.copa_winner||'',
         copa_runner:auto.copa_runner||'',
         libertadores_winner:auto.libertadores_winner||'',
         sulamericana_winner:auto.sulamericana_winner||''
-      })
+      }
+      setSelected(initial)
+      onSelectionChange?.(initial)
     }catch(e){setError(e instanceof Error?e.message:'Erro na consulta das copas')}
     finally{setLoading(false)}
-  },[apiUrl,token])
+  },[apiUrl,token,onSelectionChange])
   React.useEffect(()=>{void load()},[load])
 
   const teams=(payload?.allocation?.slots||[]).map(s=>({id:s.team_id,name:s.team})).sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'))
@@ -92,7 +94,7 @@ export default function ContinentalQualification({token,apiUrl,projectionRanking
     <div className="continental-divider"/>
     <div className="league-panel-head"><div><h3>Simular títulos e repasses de vagas</h3><p>Enquanto as finais não ocorrerem, escolha os possíveis campeões e vice. O sistema não os apresenta como resultados oficiais.</p></div></div>
     <div className="continental-options">
-      {OPTIONS.map(opt=><label key={opt.key}>{opt.label}<select value={selected[opt.key]} onChange={e=>{setSelected(s=>({...s,[opt.key]:e.target.value}));setAllocation(null)}}>
+      {OPTIONS.map(opt=><label key={opt.key}>{opt.label}<select value={selected[opt.key]} onChange={e=>{const next={...selected,[opt.key]:e.target.value};setSelected(next);onSelectionChange?.(next);setAllocation(null)}}>
         <option value="">Ainda indefinido / fora da Série A</option>
         {teams.map(t=><option value={t.id} key={t.id}>{t.name}</option>)}
       </select></label>)}
