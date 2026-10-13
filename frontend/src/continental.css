@@ -1,0 +1,31 @@
+.continental-panel{display:grid;gap:15px}
+.continental-cups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.continental-cup{border:1px solid #dfe8f1;border-radius:12px;background:#f9fcff;padding:14px;min-width:0;display:flex;flex-direction:column;gap:7px}
+.continental-cup>strong{font-size:15px;color:#162b3d}
+.continental-cup p{font-size:12px;color:#485f71;line-height:1.45;margin:0}
+.continental-cup small{font-size:11px;color:#6a8093;line-height:1.4;word-break:break-word}
+.continental-status{font-size:11px;font-weight:750;width:max-content;max-width:100%;border-radius:999px;background:#e9eef4;color:#54677c;padding:4px 9px}
+.continental-status.confirmed{background:#e6f6ed;color:#13764b}
+.continental-divider{height:1px;background:#e3edf4;margin:6px 0}
+.continental-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.continental-options label{font-size:12px;color:#52697c;font-weight:700;display:flex;flex-direction:column;gap:7px}
+.continental-options select{width:100%;border:1px solid #dae5ec;border-radius:9px;padding:10px 11px;background:#fff;color:#14283b;font-size:13px}
+.continental-controls{display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.continental-check{font-size:12px;color:#526577;display:inline-flex;gap:8px;align-items:center;cursor:pointer}
+.continental-check input{accent-color:#0284c7}
+.continental-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.continental-summary span{background:#eef7fc;border:1px solid #d7eaf6;border-radius:9px;padding:13px 12px;font-size:12px;line-height:1.45;color:#526679}
+.continental-summary strong{font-size:22px;color:#163951;display:block}
+.continental-ok{display:flex;gap:9px;align-items:start;background:#eef9f3;border:1px solid #d1ebdd;border-radius:9px;padding:12px 14px;font-size:12px;color:#1e6749}
+.continental-panel .league-note{display:flex;gap:8px;align-items:start}
+.continental-notes{font-size:12px;color:#875c17;border:1px solid #f2ddae;background:#fffaee;border-radius:9px;padding:8px 12px;line-height:1.5}
+.continental-notes p{margin:5px 0}
+.continental-destination{display:inline-flex;border-radius:999px;padding:4px 9px;background:#f1f5f9;color:#334155;font-size:11px;font-weight:750}
+.continental-destination.libertadores{background:#e6f6ec;color:#116a43}
+.continental-destination.sulamericana{background:#e7f4ff;color:#11649a}
+.continental-destination.serie_b{background:#fff0ed;color:#a24132}
+.continental-table td:last-child{max-width:330px;white-space:normal;text-align:left}
+.continental-table th:nth-child(n+3),.continental-table td:nth-child(n+3){text-align:left}
+.continental-panel a{color:#0369a1;text-decoration:underline}
+@media(max-width:900px){.continental-cups{grid-template-columns:1fr 1fr}.continental-summary{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.continental-cups,.continental-options{grid-template-columns:1fr}.continental-summary{grid-template-columns:1fr 1fr}}
