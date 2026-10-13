@@ -100,7 +100,7 @@ def parse_player(raw):
     stats_list = raw.get('statistics') or []
     if not p.get('id') or not p.get('name') or not isinstance(stats_list, list):
         return None
-    stats = next((s for s in stats_list if (s.get('league') or {}).get('id') == settings.API_FOOTBALL_SERIE_A_LEAGUE_ID), None)
+    stats = next((s for s in stats_list if str((s.get('league') or {}).get('id')) == str(settings.API_FOOTBALL_SERIE_A_LEAGUE_ID)), None)
     if stats is None:
         return None
     team = stats.get('team') or {}
@@ -231,16 +231,19 @@ def import_players(db: Session, *, pages=None):
             total = int(paging.get('total') or 0)
             if not response or not total:
                 raise RuntimeError(f'API-Football não retornou atletas na página {page}; confira cobertura 2026.')
+            imported_page = skipped_page = 0
             for item in response:
                 result = store_player(db,item,mapping)
                 if result == 'saved':
                     imported += 1
+                    imported_page += 1
                 else:
                     skipped += 1
+                    skipped_page += 1
             checkpoint.next_page = page + 1
             checkpoint.total_pages = total
-            checkpoint.imported_players += imported
-            checkpoint.skipped_players += skipped
+            checkpoint.imported_players += imported_page
+            checkpoint.skipped_players += skipped_page
             db.add(checkpoint)
             db.commit()
             if page >= total:
