@@ -5,6 +5,7 @@ vencedores quando as finais ainda não foram concluídas.
 """
 from datetime import datetime, timezone
 import json
+import hashlib
 import logging
 import re
 import unicodedata
@@ -67,7 +68,9 @@ class ApiFootballClient:
         return check_season_access(status, year)
 
     def get(self, endpoint: str, params: dict[str, Any], ttl: int) -> dict:
-        key = 'api-football:v1:' + endpoint + ':' + json.dumps(params, sort_keys=True)
+        # Segrega cache por credencial sem armazenar a chave em texto claro.
+        account = hashlib.sha256(settings.API_FOOTBALL_KEY.encode('utf-8')).hexdigest()[:16]
+        key = 'api-football:v2:' + account + ':' + endpoint + ':' + json.dumps(params, sort_keys=True)
         if self.cache:
             try:
                 cached = self.cache.get(key)
