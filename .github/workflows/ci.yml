@@ -13,6 +13,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Instalar dependências da API
+        working-directory: backend
+        run: python -m pip install -r requirements.txt
+      - name: Verificar importação das rotas
+        working-directory: backend
+        run: python -c "from app.api.router import api_router; print('Rotas carregadas:', len(api_router.routes))"
       - name: Testar motor de análises
         working-directory: backend
         run: python -m unittest discover -s tests -v
