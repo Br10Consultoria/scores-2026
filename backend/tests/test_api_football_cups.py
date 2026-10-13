@@ -1,7 +1,9 @@
 """Testes determinísticos do parser de competições (sem chamadas externas)."""
 import unittest
+from unittest.mock import patch
 from app.services.api_football_cups import (
-    _format_fixture, _is_final_round, summarize_competition,
+    _format_fixture, _is_final_round, summarize_competition, check_season_access,
+    SeasonAccessError, ApiFootballClient,
 )
 
 
@@ -17,6 +19,23 @@ def game(round_name='Final', status='FT', winner='home'):
 
 
 class CupTests(unittest.TestCase):
+    def test_free_plan_denies_season_2026_without_fixtures(self):
+        sample = {'response': {'subscription': {'plan': 'Free', 'active': True}}}
+        with self.assertRaises(SeasonAccessError):
+            check_season_access(sample, 2026)
+        self.assertEqual(check_season_access(sample, 2024), 'Free')
+
+    def test_paid_plan_allows_season_preflight(self):
+        sample = {'response': {'subscription': {'plan': 'Pro', 'active': True}}}
+        self.assertEqual(check_season_access(sample, 2026), 'Pro')
+
+    def test_client_uses_cached_status_endpoint_before_season_queries(self):
+        client = object.__new__(ApiFootballClient)
+        with patch.object(client, 'get', return_value={'response': {'subscription': {'plan': 'Free'}}}) as get:
+            with self.assertRaises(SeasonAccessError):
+                client.ensure_season_access(2026)
+            get.assert_called_once_with('/status', {}, ttl=900)
+
     def test_final_is_not_semi_final(self):
         self.assertTrue(_is_final_round('Final'))
         self.assertFalse(_is_final_round('Semi-finals'))
