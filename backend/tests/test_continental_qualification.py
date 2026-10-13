@@ -38,7 +38,7 @@ class ContinentalTests(unittest.TestCase):
         self.assertEqual(result['counts']['libertadores'],7)
         self.assertEqual(result['counts']['sulamericana'],6)
         self.assertEqual(result['slots'][0]['phase'],'groups')
-        self.assertEqual(result['slots'][13]['phase'],'pre')
+        self.assertEqual(result['slots'][13]['phase'],'groups')
         self.assertEqual(result['slots'][6]['competition'],'sulamericana')
 
     def test_cup_champion_and_runner_both_top_two(self):
