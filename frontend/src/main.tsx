@@ -9,12 +9,14 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 
 type Competition = { id: number; name: string; season_id?: number; updated_at?: string; teams_count?: number }
 type Dashboard = {
-  meta?: { latest_data_update?: string; last_collection_finished_at?: string; last_collection_message?: string; legend?: string }
+  meta?: { latest_data_update?: string; last_collection_finished_at?: string; last_collection_message?: string; legend?: string; sources?: string[]; source_warning?: boolean; player_stats_available?: boolean; finished_matches?: number; scheduled_matches?: number }
   competitions: Competition[]
   teams: number
   players: number
   stats_rows: number
   matches: number
+  finished_matches: number
+  scheduled_matches: number
   avg_rating: number | null
   top_goals: any[]
   top_assists: any[]
@@ -104,7 +106,7 @@ function App() {
   }, [token, competitionId, teamId, position, month, sort, query])
 
   async function sync() {
-    setLoading(true); setMessage('Sincronizando SofaScore: competições, times, escudos, elencos, tabela, jogos e estatísticas disponíveis...')
+    setLoading(true); setMessage('Coletando dados das fontes configuradas. O processamento continua em segundo plano...')
     try {
       const data = await request('/sofascore/sync', { method: 'POST' })
       setMessage(data.message || data.detail || 'Sincronização iniciada')
@@ -180,10 +182,10 @@ function App() {
         const meta = dash?.meta
         const started = meta?.last_collection_started_at ? new Date(meta.last_collection_started_at).getTime() : 0
         if (meta?.last_collection_status === 'running') {
-          setMessage(meta?.last_collection_message || 'Coleta em andamento...')
+          setMessage('Coleta em andamento. ' + collectionSummary(meta?.last_collection_message, dash))
         } else if (started + 5000 >= syncStart && meta?.last_collection_status) {
           setSyncStart(null)
-          setMessage(meta?.last_collection_message || 'Coleta finalizada.')
+          setMessage(collectionSummary(meta?.last_collection_message, dash))
           await loadData()
         }
         if (attempts >= 180) {
@@ -224,11 +226,11 @@ function App() {
       </div>
     </header>
     <section className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-      {message && <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sky-900">{message}</div>}
+      {message && <div className="collection-flash"><span>{collectionSummary(message,dashboard)}</span><button type="button" onClick={() => setMessage('')} aria-label="Dispensar aviso"><X size={16}/></button></div>}
       <Filters competitions={competitions} teams={teams} positions={dashboard?.positions || []} competitionId={competitionId} setCompetitionId={setCompetitionId} teamId={teamId} setTeamId={setTeamId} position={position} setPosition={setPosition} month={month} setMonth={setMonth} sort={sort} setSort={setSort} query={query} setQuery={setQuery} onApply={loadData}/>
       <AIInsight result={aiResult} loading={aiLoading} onClear={() => setAiResult(null)} />
       <nav className="tabs"><TabButton active={tab==='visao'} onClick={() => changeTab('visao')} icon={<BarChart3 size={18}/>} label="Visão geral"/><TabButton active={tab==='tabelas'} onClick={() => changeTab('tabelas')} icon={<Table2 size={18}/>} label="Tabelas"/><TabButton active={tab==='jogadores'} onClick={() => changeTab('jogadores')} icon={<Users size={18}/>} label="Jogadores"/><TabButton active={tab==='times'} onClick={() => changeTab('times')} icon={<Trophy size={18}/>} label="Times"/><TabButton active={tab==='jogos'} onClick={() => changeTab('jogos')} icon={<CalendarDays size={18}/>} label="Jogos"/><TabButton active={tab==='comparar'} onClick={() => changeTab('comparar')} icon={<LineChart size={18}/>} label="Comparar"/><TabButton active={tab==='analises'} onClick={() => changeTab('analises')} icon={<Trophy size={18}/>} label="Projeções Brasileirão"/></nav>
-      {tab === 'visao' && <Overview dashboard={dashboard} openPlayer={openPlayer}/>} 
+      {tab === 'visao' && <Overview dashboard={dashboard} openPlayer={openPlayer} openProjections={() => changeTab('analises')}/>} 
       {tab === 'tabelas' && <Standings rows={standings} openTeam={openTeam}/>} 
       {tab === 'jogadores' && <Players players={players} openPlayer={openPlayer} compareIds={compareIds} setCompareIds={setCompareIds} compare={compare} analyzePlayer={analyzePlayer}/>} 
       {tab === 'times' && <Teams teams={teams} openTeam={openTeam} analyzeTeam={analyzeTeam}/>} 
@@ -252,7 +254,82 @@ function AIInsight({ result, loading, onClear }: { result: AIResult | null; load
   </Panel>
 }
 
-function Overview({ dashboard, openPlayer }: any) { const coverage = (dashboard?.competitions || []).map((c: Competition) => `${c.name}: ${c.teams_count ?? 0} times`).join(' · '); return <div className="space-y-6"><div className="toolbar compact"><span className="small">Visão consolidada do banco SofaScore. {coverage || 'As competições aparecem após a sincronização.'}</span></div><div className="dashboard-cards"><Card icon={<Trophy/>} label="Times coletados" value={dashboard?.teams ?? 0}/><Card icon={<Users/>} label="Jogadores" value={dashboard?.players ?? 0}/><Card icon={<Activity/>} label="Jogos" value={dashboard?.matches ?? 0}/><Card icon={<BarChart3/>} label="Registros" value={dashboard?.stats_rows ?? 0}/><Card icon={<ShieldCheck/>} label="Rating médio" value={dashboard?.avg_rating ?? '-'}/></div><div className="grid grid-cols-1 xl:grid-cols-2 gap-6"><Panel title="Distribuição por posição"><ChartLegend text="Mostra a quantidade de atletas por posição cadastrada."/><ResponsiveContainer width="100%" height={300}><BarChart data={dashboard?.positions || []}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="position"/><YAxis/><Tooltip/><Legend/><Bar name="Total de jogadores" dataKey="total" fill="#0284c7" radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></Panel><Panel title="Jogos por mês"><ChartLegend text="Quantidade de partidas coletadas por mês."/><ResponsiveContainer width="100%" height={300}><RLineChart data={dashboard?.monthly_matches || []}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line name="Jogos" type="monotone" dataKey="total" stroke="#0f172a" strokeWidth={3}/></RLineChart></ResponsiveContainer></Panel></div><div className="grid grid-cols-1 lg:grid-cols-3 gap-6"><Ranking title="Top rating" rows={dashboard?.top_rating || []} field="rating" openPlayer={openPlayer}/><Ranking title="Top gols" rows={dashboard?.top_goals || []} field="goals" openPlayer={openPlayer}/><Ranking title="Top assistências" rows={dashboard?.top_assists || []} field="assists" openPlayer={openPlayer}/></div><Panel title="Metadados da coleta"><p>{dashboard?.meta?.legend}</p><p className="small">Última mensagem: {dashboard?.meta?.last_collection_message || '-'}</p></Panel></div> }
+function collectionSummary(raw?: string, dashboard?: Dashboard | null) {
+  if (!raw) return 'Aguardando primeira sincronização.'
+  const unavailable = /403 Forbidden|retornou 403|SofaScore.*403/i.test(raw)
+  const hasSerieA = (dashboard?.meta?.sources||[]).includes('football-data.org')
+  if (unavailable) {
+    return hasSerieA
+      ? 'Sincronização parcial: Série A importada pela football-data.org. Dados de jogadores e outras competições ainda indisponíveis porque a SofaScore recusou o acesso (HTTP 403).'
+      : 'Sincronização parcial: a SofaScore recusou o acesso (HTTP 403). Verifique as fontes de dados; não há estatísticas individuais disponíveis nesta coleta.'
+  }
+  // A mensagem completa permanece auditável nos logs da aplicação.
+  return raw.split(' Avisos:')[0].slice(0, 350)
+}
+
+function EmptyData({ label }: {label:string}) {
+  return <div className="empty-data">
+    <Activity size={22}/>
+    <strong>{label}</strong>
+    <p>Este gráfico será preenchido quando houver estatísticas de jogadores disponíveis na fonte configurada.</p>
+  </div>
+}
+
+function Overview({ dashboard, openPlayer, openProjections }: { dashboard:Dashboard|null; openPlayer:(id:number)=>void;openProjections:()=>void }) {
+  const comps=(dashboard?.competitions||[]).filter(c=>(c.teams_count||0)>0)
+  const coverage=comps.map(c=>`${c.name}: ${c.teams_count} clubes`).join(' · ')
+  const sources=dashboard?.meta?.sources||[]
+  const hasPlayers=(dashboard?.players||0)>0
+  const hasStats=(dashboard?.stats_rows||0)>0
+  return <div className="space-y-6">
+    <div className="overview-intro">
+      <div><strong>Visão geral das competições</strong><p>{coverage||'Aguardando competições e partidas da primeira coleta.'}</p></div>
+      <button type="button" className="secondary light" onClick={openProjections}><Trophy size={16}/> Ver projeções e vagas</button>
+    </div>
+    <div className="source-status">
+      <div><span className="source-status-icon"><Activity size={18}/></span><div>
+        <strong>{dashboard?.matches ? 'Calendário importado' : 'Aguardando calendário'}</strong>
+        <p>Origem: {sources.length ? sources.join(' + ') : 'sem dados'}. Os jogos disponíveis incluem partidas futuras.</p>
+      </div></div>
+      <div><span className="source-status-icon muted"><Users size={18}/></span><div>
+        <strong>{hasStats?'Estatísticas individuais disponíveis':'Estatísticas individuais indisponíveis'}</strong>
+        <p>{hasStats?'Ratings, gols e assistências carregados conforme cobertura da fonte.':'A SofaScore está recusando consultas (HTTP 403); a football-data.org não fornece esses dados no coletor atual.'}</p>
+      </div></div>
+    </div>
+    <div className="dashboard-cards">
+      <Card icon={<Trophy/>} label="Times coletados" value={dashboard?.teams ?? 0}/>
+      <Card icon={<Activity/>} label="Jogos realizados" value={dashboard?.finished_matches ?? 0}/>
+      <Card icon={<CalendarDays/>} label="Jogos a disputar" value={dashboard?.scheduled_matches ?? 0}/>
+      <Card icon={<Users/>} label="Jogadores" value={dashboard?.players ?? 0}/>
+      <Card icon={<BarChart3/>} label="Estatísticas de atletas" value={dashboard?.stats_rows ?? 0}/>
+    </div>
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <Panel title="Distribuição por posição">
+        {hasPlayers && dashboard?.positions?.length
+          ? <><ChartLegend text="Quantidade de atletas por posição cadastrada."/><ResponsiveContainer width="100%" height={280}><BarChart data={dashboard.positions}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="position"/><YAxis/><Tooltip/><Legend/><Bar name="Total de jogadores" dataKey="total" fill="#0284c7" radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></>
+          : <EmptyData label="Nenhum elenco coletado"/>}
+      </Panel>
+      <Panel title="Partidas por mês">
+        {dashboard?.monthly_matches?.length
+          ? <><ChartLegend text="Quantidade de jogos cadastrados por mês, incluindo jogos futuros."/><ResponsiveContainer width="100%" height={280}><RLineChart data={dashboard.monthly_matches}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line name="Partidas no calendário" type="monotone" dataKey="total" stroke="#0f172a" strokeWidth={3}/></RLineChart></ResponsiveContainer></>
+          : <EmptyData label="Calendário ainda indisponível"/>}
+      </Panel>
+    </div>
+    {hasStats ? <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <Ranking title="Top rating" rows={dashboard?.top_rating||[]} field="rating" openPlayer={openPlayer}/>
+      <Ranking title="Top gols" rows={dashboard?.top_goals||[]} field="goals" openPlayer={openPlayer}/>
+      <Ranking title="Top assistências" rows={dashboard?.top_assists||[]} field="assists" openPlayer={openPlayer}/>
+    </div> : <div className="overview-unavailable">
+      <Users size={20}/><div><strong>Rankings de artilharia, assistências e rating aguardando fonte de atletas</strong>
+      <p>Os rankings não devem exibir zeros como se fossem dados reais. Classificação, gols dos clubes e projeções do Brasileirão continuam disponíveis.</p></div>
+    </div>}
+    <Panel title="Estado da última coleta">
+      <p>{dashboard?.meta?.legend}</p>
+      <p className="small">{collectionSummary(dashboard?.meta?.last_collection_message,dashboard)}</p>
+    </Panel>
+  </div>
+}
+
 function Standings({ rows, openTeam }: any) { return <Panel title="Tabelas disponíveis: Séries A/B e Copa do Mundo"><ChartLegend text="Competições sem standings, como a Copa do Brasil, aparecem principalmente em Jogos e Times. Clique no time para abrir elenco, jogos, posição, forma e rating médio."/><div className="overflow-x-auto"><table className="table"><thead><tr><th>Pos.</th><th>Time</th><th>Competição</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>Pts</th><th>Forma</th><th>Atualizado</th></tr></thead><tbody>{rows.map((r: any, i: number) => <tr key={i}><td>{r.position}</td><td><button className="link team-cell" onClick={() => openTeam(r.team.team_id)}><Logo src={r.team.logo_url}/>{r.team.name}</button></td><td>{r.competition_name}</td><td>{r.matches ?? '-'}</td><td>{r.wins ?? '-'}</td><td>{r.draws ?? '-'}</td><td>{r.losses ?? '-'}</td><td>{r.scores_for ?? '-'}</td><td>{r.scores_against ?? '-'}</td><td>{r.score_diff ?? '-'}</td><td><strong>{r.points ?? '-'}</strong></td><td>{r.form || '-'}</td><td>{formatDate(r.updated_at)}</td></tr>)}</tbody></table></div></Panel> }
 function Players({ players, openPlayer, compareIds, setCompareIds, compare, analyzePlayer }: any) {
   const toggle = (id: number) => setCompareIds((ids: number[]) => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id].slice(-4))
