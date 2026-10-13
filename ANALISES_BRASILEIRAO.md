@@ -200,3 +200,13 @@ Estatísticas importadas conforme disponibilização: foto do atleta, time, idad
 **Atenção:** se a primeira importação estiver incompleta, os rankings e análises podem usar apenas uma amostra de atletas; a UI identifica o progresso. Para cobranças de alto volume, acompanhe os headers e o consumo da conta API-Football, pois o plano gratuito limita a 100 requisições/dia.
 
 Após `git pull` e recriação do backend, a nova tabela de progresso `player_import_checkpoints` é criada automaticamente pelo `Base.metadata.create_all` na inicialização, sem excluir dados existentes. Caso já tenha executado a coleta anterior, basta atualizar o servidor, abrir Jogadores e iniciar a importação.
+
+### Resultado confirmado do teste API-Football (outubro de 2026)
+
+O endpoint `GET /status` confirmou o plano **Free ativo**, com 100 requisições diárias. As consultas `GET /leagues?id=71&season=2026` e `GET /players?league=71&season=2026&page=1` retornaram HTTP 200 **com erro lógico no JSON**:
+
+```json
+{"errors":{"plan":"Free plans do not have access to this season, try from 2022 to 2024."}}
+```
+
+Consequentemente, **HTTP 200 não indica dados disponíveis**: valide sempre `errors`. O sistema passou a usar `GET /status` com cache de 15 minutos para detectar plano Free, bloquear novas chamadas de 2026 para jogadores e copas e mostrar a restrição nas telas. O Brasileirão continua abastecido pela football-data.org, cuja chave é distinta. A liberação de temporadas atuais depende de assinatura apropriada na API-Football (confirme planos e cobertura no provedor antes de contratar).
