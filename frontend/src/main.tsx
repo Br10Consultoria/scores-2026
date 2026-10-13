@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { Activity, ArrowLeft, BarChart3, CalendarDays, Home, LineChart, Lock, RefreshCw, Search, ShieldCheck, Smartphone, Sparkles, Table2, Trophy, Users, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart as RLineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import './styles.css'
+import LeagueAnalytics from './LeagueAnalytics'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 
@@ -27,7 +28,7 @@ type Player = { player_id: number; name: string; team_id?: number; team_name?: s
 type Match = { match_id: number; competition_name?: string; home_team?: Team; away_team?: Team; home_score?: number; away_score?: number; status?: string; start_time?: string; round_info?: string; venue?: string; updated_at?: string }
 type AIResult = { scope: string; entity_id?: number | null; title: string; analysis: string; context?: Record<string, any> }
 
-type Tab = 'visao' | 'tabelas' | 'jogadores' | 'times' | 'jogos' | 'comparar'
+type Tab = 'visao' | 'tabelas' | 'jogadores' | 'times' | 'jogos' | 'comparar' | 'analises'
 
 function App() {
   const [token, setToken] = React.useState(localStorage.getItem('token') || '')
@@ -190,12 +191,13 @@ function App() {
       {message && <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sky-900">{message}</div>}
       <Filters competitions={competitions} teams={teams} positions={dashboard?.positions || []} competitionId={competitionId} setCompetitionId={setCompetitionId} teamId={teamId} setTeamId={setTeamId} position={position} setPosition={setPosition} month={month} setMonth={setMonth} sort={sort} setSort={setSort} query={query} setQuery={setQuery} onApply={loadData}/>
       <AIInsight result={aiResult} loading={aiLoading} onClear={() => setAiResult(null)} />
-      <nav className="tabs"><TabButton active={tab==='visao'} onClick={() => changeTab('visao')} icon={<BarChart3 size={18}/>} label="Visão geral"/><TabButton active={tab==='tabelas'} onClick={() => changeTab('tabelas')} icon={<Table2 size={18}/>} label="Tabelas"/><TabButton active={tab==='jogadores'} onClick={() => changeTab('jogadores')} icon={<Users size={18}/>} label="Jogadores"/><TabButton active={tab==='times'} onClick={() => changeTab('times')} icon={<Trophy size={18}/>} label="Times"/><TabButton active={tab==='jogos'} onClick={() => changeTab('jogos')} icon={<CalendarDays size={18}/>} label="Jogos"/><TabButton active={tab==='comparar'} onClick={() => changeTab('comparar')} icon={<LineChart size={18}/>} label="Comparar"/></nav>
+      <nav className="tabs"><TabButton active={tab==='visao'} onClick={() => changeTab('visao')} icon={<BarChart3 size={18}/>} label="Visão geral"/><TabButton active={tab==='tabelas'} onClick={() => changeTab('tabelas')} icon={<Table2 size={18}/>} label="Tabelas"/><TabButton active={tab==='jogadores'} onClick={() => changeTab('jogadores')} icon={<Users size={18}/>} label="Jogadores"/><TabButton active={tab==='times'} onClick={() => changeTab('times')} icon={<Trophy size={18}/>} label="Times"/><TabButton active={tab==='jogos'} onClick={() => changeTab('jogos')} icon={<CalendarDays size={18}/>} label="Jogos"/><TabButton active={tab==='comparar'} onClick={() => changeTab('comparar')} icon={<LineChart size={18}/>} label="Comparar"/><TabButton active={tab==='analises'} onClick={() => changeTab('analises')} icon={<Trophy size={18}/>} label="Projeções Brasileirão"/></nav>
       {tab === 'visao' && <Overview dashboard={dashboard} openPlayer={openPlayer}/>} 
       {tab === 'tabelas' && <Standings rows={standings} openTeam={openTeam}/>} 
       {tab === 'jogadores' && <Players players={players} openPlayer={openPlayer} compareIds={compareIds} setCompareIds={setCompareIds} compare={compare} analyzePlayer={analyzePlayer}/>} 
       {tab === 'times' && <Teams teams={teams} openTeam={openTeam} analyzeTeam={analyzeTeam}/>} 
       {tab === 'jogos' && <Matches matches={matches} openTeam={openTeam} analyzeMatch={analyzeMatch}/>} 
+      {tab === 'analises' && <LeagueAnalytics token={token} apiUrl={API_URL}/>}
       {tab === 'comparar' && <Comparison players={comparison} availablePlayers={players} teams={teams} teamComparison={teamComparison} compareIds={compareIds} setCompareIds={setCompareIds} compare={compare} compareTeamIds={compareTeamIds} setCompareTeamIds={setCompareTeamIds} compareTeams={compareSelectedTeams} analyzeCompare={analyzeCompare} disabled={compareIds.length < 2 || aiLoading}/>} 
       <p className="legend">Legenda geral: as métricas exibidas dependem do nível de detalhe público retornado pela SofaScore para cada competição, time e atleta. Todas as datas são exibidas no fuso local do navegador a partir de timestamps UTC do backend.</p>
     </section>
