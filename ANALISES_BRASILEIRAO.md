@@ -172,3 +172,31 @@ Nenhum token aparece nessa saída. O HTTP 403 da SofaScore pode continuar até o
 #### Segurança do .env
 
 O token usado na Copa é **API_FOOTBALL_KEY**, diferente de **FOOTBALL_DATA_API_KEY**. Nunca compartilhe os valores em chat ou commits. Após exposição, revogue e gere novas credenciais. Prefira `CORS_ORIGIN_REGEX=` vazio em produção e `CORS_ORIGINS` com a URL HTTPS exata. Atualizar `FIRST_SUPERUSER_PASSWORD` no arquivo depois que o usuário já foi criado **não redefine a senha armazenada no banco**.
+
+## Jogadores, artilharia e estatísticas individuais (API-Football)
+
+A SofaScore continua opcional: em caso de `HTTP 403`, a coleta de jogadores pode ocorrer por `API_FOOTBALL_KEY`, a **mesma chave utilizada para as três copas**, e não pela `FOOTBALL_DATA_API_KEY`.
+
+Aba **Jogadores → Coleta de jogadores · API-Football → Sincronizar jogadores**.
+
+No `.env`:
+
+```env
+API_FOOTBALL_KEY=seu_token_privado
+API_FOOTBALL_SERIE_A_LEAGUE_ID=71
+API_FOOTBALL_PLAYERS_PAGES_PER_SYNC=8
+```
+
+A função é **manual e paginada**: cada execução solicita até oito páginas da temporada 2026, grava as informações no PostgreSQL e guarda a próxima página, permitindo continuar a coleta sem recomeçar do zero. A requisição é assíncrona no backend. A atualização usa cache Redis de 6 horas e intervalo entre chamadas, respeitando o limite de 10 por minuto. A coleta também tenta buscar os 20 primeiros artilheiros e os 20 primeiros assistentes por endpoints dedicados, mesmo enquanto o elenco completo estiver parcialmente coletado.
+
+Rotas:
+
+- `GET /api/v1/players-source/status`: disponibilidade da chave, atletas e estatísticas no banco, progresso e última mensagem.
+- `POST /api/v1/players-source/sync?pages=8`: restrita a administradores; executa coleta em segundo plano (limite de 15 páginas por execução).
+- `GET /api/v1/sofascore/players` e `GET /api/v1/sofascore/players/{id}`: continuam sendo os mesmos endpoints do frontend, agora com registros originados da API-Football.
+
+Estatísticas importadas conforme disponibilização: foto do atleta, time, idade, posição, nacionalidade, jogos, titularidades, minutos, gols, assistências, rating, finalizações, chutes no alvo, passes-chave, desarmes, interceptações, cartões, defesas e gols sofridos pelo goleiro. Dados ausentes permanecem nulos; **não devem ser confundidos com zero**. A API gratuita pode não fornecer a temporada atual ou os atributos detalhados de cada competição. O painel informa a indisponibilidade quando a API não fornece resultados. IDs de jogadores e clubes são segregados por fornecedor para evitar colisão.
+
+**Atenção:** se a primeira importação estiver incompleta, os rankings e análises podem usar apenas uma amostra de atletas; a UI identifica o progresso. Para cobranças de alto volume, acompanhe os headers e o consumo da conta API-Football, pois o plano gratuito limita a 100 requisições/dia.
+
+Após `git pull` e recriação do backend, a nova tabela de progresso `player_import_checkpoints` é criada automaticamente pelo `Base.metadata.create_all` na inicialização, sem excluir dados existentes. Caso já tenha executado a coleta anterior, basta atualizar o servidor, abrir Jogadores e iniciar a importação.
