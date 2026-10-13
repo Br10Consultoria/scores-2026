@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER_USERNAME: str = 'admin'
     FIRST_SUPERUSER_PASSWORD: str = 'Admin@123456'
 
+    FOOTBALL_DATA_API_KEY: str = ''
+    FOOTBALL_DATA_CACHE_SECONDS: int = 1800
+
     SOFASCORE_BASE_URL: str = 'https://api.sofascore.com/api/v1'
     SOFASCORE_TOURNAMENT_ID: int = 325
     SOFASCORE_SEASON_ID: int = 87678
