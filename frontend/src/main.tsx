@@ -51,6 +51,7 @@ function App() {
   const [sort, setSort] = React.useState('rating')
   const [message, setMessage] = React.useState('')
   const [loading, setLoading] = React.useState(false)
+  const [syncStart, setSyncStart] = React.useState<number|null>(null)
   const [aiLoading, setAiLoading] = React.useState(false)
   const [aiResult, setAiResult] = React.useState<AIResult | null>(null)
   const [selectedTeam, setSelectedTeam] = React.useState<any | null>(null)
@@ -106,8 +107,12 @@ function App() {
     setLoading(true); setMessage('Sincronizando SofaScore: competições, times, escudos, elencos, tabela, jogos e estatísticas disponíveis...')
     try {
       const data = await request('/sofascore/sync', { method: 'POST' })
-      setMessage(data.message || data.detail || 'Sincronização finalizada')
-      await loadData()
+      setMessage(data.message || data.detail || 'Sincronização iniciada')
+      if (data.status === 'accepted' || data.status === 'running') {
+        setSyncStart(Date.now())
+      } else {
+        await loadData()
+      }
     } catch (e: any) { setMessage(e.message || 'Falha na sincronização') }
     setLoading(false)
   }
@@ -160,6 +165,37 @@ function App() {
   const analyzeCompare = () => runAI('/ai/compare', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player_ids: compareIds }) })
 
   React.useEffect(() => { loadData().catch(err => setMessage(err.message)) }, [token])
+
+  // A sincronização é assíncrona. Evita anunciar "concluído" enquanto o
+  // coletor ainda está gravando dados no PostgreSQL.
+  React.useEffect(() => {
+    if (!token || syncStart === null) return
+    let active = true
+    let attempts = 0
+    const timer = window.setInterval(async () => {
+      attempts += 1
+      try {
+        const dash = await request('/reports/dashboard')
+        if (!active) return
+        const meta = dash?.meta
+        const started = meta?.last_collection_started_at ? new Date(meta.last_collection_started_at).getTime() : 0
+        if (meta?.last_collection_status === 'running') {
+          setMessage(meta?.last_collection_message || 'Coleta em andamento...')
+        } else if (started + 5000 >= syncStart && meta?.last_collection_status) {
+          setSyncStart(null)
+          setMessage(meta?.last_collection_message || 'Coleta finalizada.')
+          await loadData()
+        }
+        if (attempts >= 180) {
+          setSyncStart(null)
+          setMessage('A coleta continua no servidor ou excedeu o tempo de acompanhamento. Verifique o status nos logs.')
+        }
+      } catch (error) {
+        if (active) setMessage(error instanceof Error ? error.message : 'Falha ao consultar status de coleta.')
+      }
+    }, 10000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [token, syncStart])
 
   if (!token) {
     return <main className="login-screen">
