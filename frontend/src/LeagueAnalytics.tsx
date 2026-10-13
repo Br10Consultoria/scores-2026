@@ -1,6 +1,7 @@
 import React from 'react'
 import { BarChart3, CalendarDays, RefreshCw, RotateCcw, Sparkles, Target, Trophy } from 'lucide-react'
 import './leagueAnalytics.css'
+import ContinentalQualification from './ContinentalQualification'
 
 type Stats = { played:number; wins:number; draws:number; losses:number; points:number; goals_for:number; goals_against:number; ppg:number }
 type LeagueRow = Stats & { position:number; team_id:string; team:string; goal_difference:number; first:Stats; return:Stats; home:Stats; away:Stats; recent:Stats }
@@ -31,7 +32,7 @@ export default function LeagueAnalytics({token, apiUrl}:Props) {
   const [error,setError] = React.useState('')
   const [period,setPeriod] = React.useState<Period>('return')
   const [team,setTeam] = React.useState('')
-  const [libertadores,setLibertadores] = React.useState(6)
+  const [libertadores,setLibertadores] = React.useState(5)
   const [overrides,setOverrides] = React.useState<Record<string,Outcome>>({})
 
   const getData = React.useCallback(async ()=>{
@@ -109,6 +110,7 @@ export default function LeagueAnalytics({token, apiUrl}:Props) {
         <div className="league-switch">{periods.map(p=><button key={p} type="button" onClick={()=>setPeriod(p)} className={period===p?'selected':''}>{periodLabels[p]}</button>)}</div>
         <div className="league-scroll"><table className="league-table"><thead><tr><th>Pos.</th><th>Clube</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>Pts</th><th>Pts/jogo</th></tr></thead><tbody>{sorted.map((r,i)=>{const s=nameOf(r,period);return <tr key={r.team_id}><td>{i+1}º</td><td><strong>{r.team}</strong></td><td>{s.played}</td><td>{s.wins}</td><td>{s.draws}</td><td>{s.losses}</td><td>{s.goals_for}</td><td>{s.goals_against}</td><td>{s.goals_for-s.goals_against}</td><td><strong>{s.points}</strong></td><td>{fmt(s.played?s.points/s.played:0)}</td></tr>})}</tbody></table></div>
       </section>
+      <ContinentalQualification token={token} apiUrl={apiUrl} projectionRanking={forecast?.forecast.map(r=>r.team_id)}/>
       <section className="league-panel">
         <div className="league-panel-head"><div><h3><CalendarDays size={19}/> Simulador de resultados</h3><p>Selecione um clube e marque vitórias, empates ou derrotas nas partidas que faltam.</p></div><div className="league-tools"><label>Clube<select value={effectiveTeam} onChange={e=>setTeam(e.target.value)}>{teamRows.map(r=><option key={r.team_id} value={r.team_id}>{r.team}</option>)}</select></label></div></div>
         {selected && <div className="league-team-summary"><strong>{selected.team}</strong><span>{selected.points} pontos atuais</span><span>{selected.home.points} pontos em casa</span><span>{selected.away.points} pontos fora</span><span>{selected.return.points} pontos no returno</span></div>}
@@ -129,11 +131,11 @@ export default function LeagueAnalytics({token, apiUrl}:Props) {
           <div><strong>{chosen.length}</strong> resultados definidos. {selected && chosen.length===pending.length && pending.length>0 ? `Com os palpites acima, ${selected.team} termina com ${selected.points+customPoints} pontos.`:'As demais partidas serão simuladas automaticamente.'}</div>
           <div className="league-footer-actions">
             <button type="button" className="league-btn secondary" onClick={()=>{setOverrides({});setForecast(null)}}><RotateCcw size={15}/> Limpar palpites</button>
-            <label>Vagas por tabela na Libertadores<select value={libertadores} onChange={e=>{setLibertadores(Number(e.target.value));setForecast(null)}}>{Array.from({length:9},(_,i)=>i+4).map(n=><option value={n} key={n}>G{n}</option>)}</select></label>
+            <label>Vagas em classificação simplificada<select value={libertadores} onChange={e=>{setLibertadores(Number(e.target.value));setForecast(null)}}>{Array.from({length:9},(_,i)=>i+4).map(n=><option value={n} key={n}>G{n}</option>)}</select></label>
             <button type="button" disabled={!data.simulation_available || simLoading} className="league-btn" onClick={()=>void runSimulation()}><Target size={16}/>{simLoading?'Simulando...':'Simular 2.000 temporadas'}</button>
           </div>
         </div>
-        <p className="league-disclaimer">O seletor G4–G12 é um cenário manual. Títulos de Copa do Brasil, Libertadores e Sul-Americana não liberam vagas automaticamente. Os critérios oficiais da CBF/Conmebol devem ser conferidos para cada temporada.</p>
+        <p className="league-disclaimer">Este simulador rápido estima faixas por posição e não aplica automaticamente os campeões das copas. Use o módulo acima para calcular os repasses de vagas conforme o regulamento CBF 2026.</p>
       </section>
       {forecast && <section className="league-panel">
         <div className="league-panel-head"><div><h3><Trophy size={20}/> Projeção final · {forecast.runs.toLocaleString('pt-BR')} simulações</h3><p>Probabilidades estimadas por modelo simplificado; não são percentuais oficiais.</p></div><span className="league-label"><Sparkles size={15}/> Cenário G{forecast.libertadores_places}</span></div>
