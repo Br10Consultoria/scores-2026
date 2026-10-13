@@ -156,9 +156,12 @@ def allocate_2026(table, copa_winner=None, copa_runner=None,
     spare_pre = 0
 
     if complete_copa:
-        # §5º: se o campeão da Copa já possui vaga de grupos via torneio
-        # continental, vice recebe grupos e sua vaga preliminar volta à tabela.
-        if champ in (lib, sula):
+        # §5º: quando o campeão da Copa já tem classificação DIRETA
+        # por Série A (entre os quatro primeiros grupos elegíveis) ou
+        # por título continental, o vice herda a vaga de GRUPOS da
+        # Copa e a sua vaga de pré retorna ao Brasileirão.
+        league_direct_candidates = [tid for tid in order if tid not in (lib, sula)][:4]
+        if champ in (lib, sula) or champ in league_direct_candidates:
             if not grant(vice, 'groups', 'Vice da Copa do Brasil (vaga direta transferida)'):
                 spare_group += 1
             spare_pre += 1
