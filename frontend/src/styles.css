@@ -395,3 +395,24 @@ select {
     justify-content: flex-start;
   }
 }
+
+/* Estado claro e compacto quando somente o calendario foi importado. */
+.collection-flash{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border:1px solid #c9e4f6;background:#eef8fe;color:#195a83;padding:12px 16px;border-radius:12px;font-size:13px;line-height:1.55}
+.collection-flash button{border:0;background:transparent;color:inherit;cursor:pointer;display:flex;flex:none;padding:3px}
+.overview-intro{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;color:#516678;font-size:13px}
+.overview-intro strong{font-size:15px;color:#17283b}
+.overview-intro p{margin:4px 0 0}
+.overview-intro button{display:inline-flex;align-items:center;gap:8px;font-size:12px}
+.source-status{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.source-status>div{display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid #dae8f0;background:#fafdff;border-radius:13px}
+.source-status-icon{display:grid;place-items:center;width:34px;height:34px;flex:none;color:#007ac2;background:#e8f5fd;border-radius:10px}
+.source-status-icon.muted{color:#95650e;background:#fff4de}
+.source-status strong{font-size:13px;color:#22374b}
+.source-status p{font-size:12px;line-height:1.5;color:#65788b;margin:4px 0 0}
+.empty-data{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;min-height:180px;text-align:center;color:#61768a}
+.empty-data strong{font-size:13px;color:#314c65}
+.empty-data p{font-size:12px;line-height:1.55;max-width:300px;margin:0}
+.overview-unavailable{display:flex;gap:12px;align-items:flex-start;background:#f9fbfd;border:1px dashed #c7d9e5;border-radius:12px;padding:19px;color:#50748d}
+.overview-unavailable strong{font-size:14px;color:#294761}
+.overview-unavailable p{font-size:12px;color:#63788c;line-height:1.6;margin:6px 0 0}
+@media(max-width:720px){.source-status{grid-template-columns:1fr}.overview-intro button{width:100%;justify-content:center}}
