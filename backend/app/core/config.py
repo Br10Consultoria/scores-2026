@@ -24,6 +24,8 @@ class Settings(BaseSettings):
 
     API_FOOTBALL_KEY: str = ''
     API_FOOTBALL_CACHE_SECONDS: int = 3600
+    API_FOOTBALL_SERIE_A_LEAGUE_ID: int = 71
+    API_FOOTBALL_PLAYERS_PAGES_PER_SYNC: int = 8
 
     SOFASCORE_BASE_URL: str = 'https://api.sofascore.com/api/v1'
     SOFASCORE_TOURNAMENT_ID: int = 325
