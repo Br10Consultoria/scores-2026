@@ -8,6 +8,8 @@ A aba **Projeções Brasileirão** usa resultados reais para construir tabelas d
 
 A fonte preferencial é a API gratuita [football-data.org](https://www.football-data.org/coverage) para a Série A, configurada com `FOOTBALL_DATA_API_KEY` no `.env` (cache Redis de 30 min); sem chave, utiliza partidas da SofaScore já armazenadas. **O aplicativo nunca inventa jogos ou publica probabilidades com calendário incompleto.**
 
+O módulo agora também apresenta **Copa do Brasil, Libertadores, Sul-Americana e distribuição das vagas para 2027**, com identificação de campeões/vice confirmados (se houver dados), simulação hipotética de títulos, repasse de vagas e Monte Carlo dependente dos vencedores escolhidos. Para coletar automaticamente os três torneios configure uma **segunda chave opcional**, `API_FOOTBALL_KEY`, obtida na [API-Football](https://www.api-football.com/). A chave football-data.org sozinha não alimenta as copas. No caso de erro 403 da SofaScore, a coleta da Série A pode usar a fonte football-data.org como fallback, mantendo jogadores e ratings indisponíveis até obter fonte com essa cobertura.
+
 Consulte **[ANALISES_BRASILEIRAO.md](ANALISES_BRASILEIRAO.md)** para instruções, limitações e exemplos de chamadas.
 
 ## Recursos implementados
