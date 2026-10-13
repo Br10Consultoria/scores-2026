@@ -13,7 +13,7 @@ type League = {
   validation?: {ok:boolean;message:string; checks:{code:string; label:string;ok:boolean;actual:number;expected:number}[]}
 }
 type Projection = { team_id:string;team:string;current_points:number; expected_points:number;points_p10:number;points_p90:number;expected_position:number;title_pct:number;libertadores_pct:number;sulamericana_pct:number;relegation_pct:number }
-type Simulation = {method:string;runs:number;forecast:Projection[];source:string;libertadores_places:number;sula_places:number}
+type Simulation = {method:string;runs:number;forecast:Projection[];source:string;libertadores_places:number;sula_places:number;qualification_mode?:string}
 type Props = { token:string; apiUrl:string }
 type Period = 'total'|'return'|'first'|'home'|'away'|'recent'
 type Outcome = 'H'|'D'|'A'
@@ -33,6 +33,7 @@ export default function LeagueAnalytics({token, apiUrl}:Props) {
   const [period,setPeriod] = React.useState<Period>('return')
   const [team,setTeam] = React.useState('')
   const [libertadores,setLibertadores] = React.useState(5)
+  const [cupScenario,setCupScenario] = React.useState<Record<string,string>>({})
   const [overrides,setOverrides] = React.useState<Record<string,Outcome>>({})
 
   const getData = React.useCallback(async ()=>{
@@ -70,7 +71,7 @@ export default function LeagueAnalytics({token, apiUrl}:Props) {
     try {
       const response=await fetch(`${apiUrl}/analytics/brasileirao/simulate`,{
         method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-        body:JSON.stringify({season:2026,runs:2000,seed:2026,libertadores_places:libertadores,sula_places:6,overrides})
+        body:JSON.stringify({season:2026,runs:2000,seed:2026,libertadores_places:libertadores,sula_places:6,overrides,continental_selections:cupScenario})
       })
       const result=await response.json()
       if (!response.ok) throw new Error(result.detail || 'Não foi possível simular a competição.')
@@ -110,7 +111,7 @@ export default function LeagueAnalytics({token, apiUrl}:Props) {
         <div className="league-switch">{periods.map(p=><button key={p} type="button" onClick={()=>setPeriod(p)} className={period===p?'selected':''}>{periodLabels[p]}</button>)}</div>
         <div className="league-scroll"><table className="league-table"><thead><tr><th>Pos.</th><th>Clube</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>Pts</th><th>Pts/jogo</th></tr></thead><tbody>{sorted.map((r,i)=>{const s=nameOf(r,period);return <tr key={r.team_id}><td>{i+1}º</td><td><strong>{r.team}</strong></td><td>{s.played}</td><td>{s.wins}</td><td>{s.draws}</td><td>{s.losses}</td><td>{s.goals_for}</td><td>{s.goals_against}</td><td>{s.goals_for-s.goals_against}</td><td><strong>{s.points}</strong></td><td>{fmt(s.played?s.points/s.played:0)}</td></tr>})}</tbody></table></div>
       </section>
-      <ContinentalQualification token={token} apiUrl={apiUrl} projectionRanking={forecast?.forecast.map(r=>r.team_id)}/>
+      <ContinentalQualification token={token} apiUrl={apiUrl} projectionRanking={forecast?.forecast.map(r=>r.team_id)} onSelectionChange={setCupScenario}/>
       <section className="league-panel">
         <div className="league-panel-head"><div><h3><CalendarDays size={19}/> Simulador de resultados</h3><p>Selecione um clube e marque vitórias, empates ou derrotas nas partidas que faltam.</p></div><div className="league-tools"><label>Clube<select value={effectiveTeam} onChange={e=>setTeam(e.target.value)}>{teamRows.map(r=><option key={r.team_id} value={r.team_id}>{r.team}</option>)}</select></label></div></div>
         {selected && <div className="league-team-summary"><strong>{selected.team}</strong><span>{selected.points} pontos atuais</span><span>{selected.home.points} pontos em casa</span><span>{selected.away.points} pontos fora</span><span>{selected.return.points} pontos no returno</span></div>}
@@ -135,10 +136,10 @@ export default function LeagueAnalytics({token, apiUrl}:Props) {
             <button type="button" disabled={!data.simulation_available || simLoading} className="league-btn" onClick={()=>void runSimulation()}><Target size={16}/>{simLoading?'Simulando...':'Simular 2.000 temporadas'}</button>
           </div>
         </div>
-        <p className="league-disclaimer">Este simulador rápido estima faixas por posição e não aplica automaticamente os campeões das copas. Use o módulo acima para calcular os repasses de vagas conforme o regulamento CBF 2026.</p>
+        <p className="league-disclaimer">Quando há campeões/vice escolhidos no módulo acima, o Monte Carlo recalcula as probabilidades usando os repasses previstos no regulamento CBF 2026. Sem escolhas, usa apenas a faixa simplificada de posições.</p>
       </section>
       {forecast && <section className="league-panel">
-        <div className="league-panel-head"><div><h3><Trophy size={20}/> Projeção final · {forecast.runs.toLocaleString('pt-BR')} simulações</h3><p>Probabilidades estimadas por modelo simplificado; não são percentuais oficiais.</p></div><span className="league-label"><Sparkles size={15}/> Cenário G{forecast.libertadores_places}</span></div>
+        <div className="league-panel-head"><div><h3><Trophy size={20}/> Projeção final · {forecast.runs.toLocaleString('pt-BR')} simulações</h3><p>Probabilidades estimadas por modelo simplificado; não são percentuais oficiais.</p></div><span className="league-label"><Sparkles size={15}/>{forecast.qualification_mode==='cbf_2026'?'Repasses CBF 2026':`Cenário G${forecast.libertadores_places}`}</span></div>
         <div className="league-scroll"><table className="league-table"><thead><tr><th>Clube</th><th>Pts atuais</th><th>Pts esperados</th><th>Intervalo 10–90%</th><th>Pos. média</th><th>Título</th><th>Libertadores</th><th>Sul-Americana</th><th>Queda</th></tr></thead><tbody>{forecast.forecast.map(r=><tr key={r.team_id}><td><strong>{r.team}</strong></td><td>{r.current_points}</td><td><strong>{fmt(r.expected_points)}</strong></td><td>{r.points_p10}–{r.points_p90}</td><td>{fmt(r.expected_position)}º</td><td>{fmt(r.title_pct)}%</td><td>{fmt(r.libertadores_pct)}%</td><td>{fmt(r.sulamericana_pct)}%</td><td>{fmt(r.relegation_pct)}%</td></tr>)}</tbody></table></div>
         <p className="league-disclaimer">{forecast.method}</p>
       </section>}
