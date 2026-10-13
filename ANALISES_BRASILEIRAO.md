@@ -19,6 +19,7 @@ Obtenha o token em https://www.football-data.org/client/register . A chave fica 
 ### Endpoints (JWT necessário)
 
 - `GET /api/v1/analytics/brasileirao?season=2026`: tabela, turno, returno, casa, fora, últimos cinco, partidas restantes, cobertura e origem dos dados.
+- `GET /api/v1/analytics/brasileirao/validation?season=2026`: checklist automático de 20 clubes, 380 partidas, 38 rodadas, 10 partidas por rodada, 38 jogos por clube (19 mandante e 19 visitante), IDs duplicados e partidas inválidas. Também está integrado à aba no navegador.
 - `POST /api/v1/analytics/brasileirao/simulate`: simulação Monte Carlo (entre 100 e 10 mil execuções). Exemplo:
 
 ```json
@@ -57,7 +58,25 @@ docker compose up -d --build backend frontend
 docker compose logs --tail=50 backend frontend
 ```
 
-Depois de login, acesse **Projeções Brasileirão** e confirme a fonte e a cobertura de dados na parte superior.
+Depois de login, acesse **Projeções Brasileirão** e confira o quadro **Validação automática dos dados**, a fonte e a cobertura do calendário. A simulação só é liberada quando todos os testes de integridade são aprovados.
+
+**Verificar pelo console sem exibir sua chave:**
+
+```bash
+docker compose exec -T backend python - <<'PY'
+from app.services.football_data import get_brazil_serie_a
+from app.services.league_validation import validate_calendar
+from app.core.config import settings
+print('Chave configurada:', bool(settings.FOOTBALL_DATA_API_KEY))
+result = get_brazil_serie_a(2026)
+checks = validate_calendar(result['games'], result['source'], result['updated_at'])
+print('Fonte:', checks['source'], '| jogos:', checks['unique_games'], '| disputados:', checks['finished_games'])
+for check in checks['checks']:
+    print('OK' if check['ok'] else 'PENDENTE', '-', check['label'], check['actual'], '/', check['expected'])
+PY
+```
+
+Esse comando faz consulta real à API e requer `FOOTBALL_DATA_API_KEY`. Caso a chave não esteja configurada, o painel pode usar os dados SofaScore locais, mas o comando acima retornará erro de chave ausente.
 
 ## Testes
 
