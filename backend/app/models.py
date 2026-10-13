@@ -164,3 +164,19 @@ class TelegramChat(Base):
     username: Mapped[str | None] = mapped_column(String(120), nullable=True)
     is_allowed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class PlayerImportCheckpoint(Base):
+    """Cursor persistente da importação paginada de atletas via API-Football."""
+    __tablename__ = 'player_import_checkpoints'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(64), default='api-football')
+    season: Mapped[int] = mapped_column(Integer, default=2026)
+    next_page: Mapped[int] = mapped_column(Integer, default=1)
+    total_pages: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    imported_players: Mapped[int] = mapped_column(Integer, default=0)
+    skipped_players: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(32), default='idle')
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
