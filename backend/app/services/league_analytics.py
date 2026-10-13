@@ -3,11 +3,9 @@
 Não se inventam partidas: probabilidades só são exibidas com calendário completo.
 """
 from collections import defaultdict
-from datetime import datetime
-import math
 import random
 
-FINISHED = {'FINISHED', 'AWARDED', 'AFTER_EXTRA_TIME', 'AFTER_PENALTIES', 'FT', 'ENDED', 'COMPLETED', 'FULL TIME', 'AFTER PENALTIES'}
+FINISHED = {'FINISHED', 'FINALIZADO', 'AWARDED', 'AFTER_EXTRA_TIME', 'AFTER_PENALTIES', 'FT', 'ENDED', 'COMPLETED', 'FULL TIME', 'AFTER PENALTIES', 'TERMINADO'}
 EXPECTED_MATCHES = 380
 
 
@@ -132,7 +130,13 @@ def overview(games, source='sem dados', updated_at=None, season=2026):
         entry['ppg'] = _ppg(row)
         rows.append(entry)
     total = len(games)
-    complete = len(names) == 20 and total >= EXPECTED_MATCHES and len({str(g['id']) for g in games}) == total
+    participation = defaultdict(int)
+    for g in games:
+        participation[str(g['home_id'])] += 1
+        participation[str(g['away_id'])] += 1
+    complete = (len(names) == 20 and total == EXPECTED_MATCHES
+                and len({str(g['id']) for g in games}) == total
+                and all(participation[team] == 38 for team in names))
     return {
         'season': season, 'source': source, 'updated_at': updated_at,
         'coverage': {'fixtures': total, 'expected': EXPECTED_MATCHES, 'finished': total - len(pending), 'pending': len(pending), 'teams': len(names), 'complete': complete},
@@ -217,8 +221,8 @@ def simulate(games, overrides=None, libertadores_places=6, sula_places=6, runs=2
         'runs': runs, 'seed': seed, 'libertadores_places': libertadores_places, 'sula_places': sula_places,
         'overrides': overrides, 'forecast': forecast,
         'fixture_probabilities': [{
-            'id': str(g['id']), 'home_pct': pct(int(probabilities[str(g['id'])][0] * runs)),
-            'draw_pct': pct(int(probabilities[str(g['id'])][1] * runs)),
-            'away_pct': pct(int(probabilities[str(g['id'])][2] * runs))
+            'id': str(g['id']), 'home_pct': round(100 * probabilities[str(g['id'])][0], 1),
+            'draw_pct': round(100 * probabilities[str(g['id'])][1], 1),
+            'away_pct': round(100 * probabilities[str(g['id'])][2], 1)
         } for g in scheduled]
     }
