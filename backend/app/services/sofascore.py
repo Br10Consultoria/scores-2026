@@ -412,6 +412,22 @@ def sync_teams_and_players(db: Session) -> str:
                 warning = f'{comp_name}: falha na coleta estrutural da competição ({exc})'
                 warnings.append(warning)
                 print(f'[SofaScore][WARN] {warning}', flush=True)
+                # Quando a SofaScore retorna 403, preenche a estrutura da
+                # Série A com a fonte autorizada configurada no .env.
+                if (int(meta['id']) == settings.SOFASCORE_SERIE_A_TOURNAMENT_ID
+                        and settings.FOOTBALL_DATA_API_KEY):
+                    try:
+                        from app.services.football_data_import import import_brasileirao
+                        fallback = import_brasileirao(db)
+                        standings_count += fallback['standings']
+                        teams_count += fallback['teams']
+                        matches_count += fallback['matches']
+                        print(f'[Fallback] Série A: {fallback["teams"]} clubes e {fallback["matches"]} jogos da football-data.org.', flush=True)
+                        update_progress('Série A obtida pela football-data.org. SofaScore indisponível para elencos e outras competições.')
+                    except Exception as fallback_exc:
+                        db.rollback()
+                        print(f'[Fallback][WARN] Série A: {fallback_exc}', flush=True)
+                        warnings.append(f'Fallback Série A: {fallback_exc}')
                 continue
 
         update_progress(
