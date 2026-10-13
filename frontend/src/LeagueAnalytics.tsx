@@ -8,7 +8,8 @@ type Fixture = { id:string; round:number|null; date:string|null; home_id:string;
 type League = {
   season:number; source:string; updated_at?:string|null;
   coverage:{fixtures:number;expected:number;finished:number;pending:number;teams:number;complete:boolean};
-  simulation_available:boolean; notice:string; provider_warning?:string|null; table:LeagueRow[]; fixtures:Fixture[]
+  simulation_available:boolean; notice:string; provider_warning?:string|null; table:LeagueRow[]; fixtures:Fixture[];
+  validation?: {ok:boolean;message:string; checks:{code:string; label:string;ok:boolean;actual:number;expected:number}[]}
 }
 type Projection = { team_id:string;team:string;current_points:number; expected_points:number;points_p10:number;points_p90:number;expected_position:number;title_pct:number;libertadores_pct:number;sulamericana_pct:number;relegation_pct:number }
 type Simulation = {method:string;runs:number;forecast:Projection[];source:string;libertadores_places:number;sula_places:number}
@@ -86,7 +87,11 @@ export default function LeagueAnalytics({token, apiUrl}:Props) {
     {data && <>
       <div className="league-meta"><span>Fonte: <strong>{data.source}</strong></span><span>{data.coverage.finished} resultados de {data.coverage.expected} jogos previstos</span><span>{data.coverage.pending} jogos a disputar/cadastrar</span></div>
       {data.provider_warning && <div className="league-note">{data.provider_warning}</div>}
-      {!data.coverage.complete && <div className="league-warning"><strong>Dados incompletos:</strong> {data.notice} Você ainda pode consultar os jogos e os recortes disponíveis.</div>}
+      {!data.simulation_available && <div className="league-warning"><strong>Validação pendente:</strong> {data.notice} Você ainda pode consultar os jogos e os recortes disponíveis.</div>}
+      {data.validation && <section className="league-panel">
+        <div className="league-panel-head"><div><h3>Validação automática dos dados</h3><p>Verifica calendário, mandos, rodadas e identificação de partidas antes de liberar projeções.</p></div><span className={data.validation.ok?'league-validation-ready':'league-validation-wait'}>{data.validation.ok?'Pronto para simular':'Verificar dados'}</span></div>
+        <div className="league-validation-grid">{data.validation.checks.map(check=><div className="league-validation-item" key={check.code}><span className={check.ok?'league-check-pass':'league-check-fail'}>{check.ok?'✓':'!'}</span><div><strong>{check.label}</strong><small>{check.ok?'Validado':`Encontrado: ${check.actual} · esperado: ${check.expected}`}</small></div></div>)}</div>
+      </section>}
       <div className="league-kpis">
         <div><span>Líder atual</span><strong>{data.table[0]?.team || '—'}</strong><small>{data.table[0]?.points ?? 0} pontos</small></div>
         <div><span>Melhor returno</span><strong>{[...data.table].sort((a,b)=>b.return.points-a.return.points)[0]?.team || '—'}</strong><small>pontos desde a 20ª rodada</small></div>
