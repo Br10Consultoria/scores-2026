@@ -98,6 +98,12 @@ export default function LeagueAnalytics({token, apiUrl}:Props) {
         <div><span>Partidas disponíveis</span><strong>{data.coverage.fixtures}</strong><small>de {data.coverage.expected} previstas</small></div>
         <div><span>Modelo probabilístico</span><strong>{data.simulation_available?'Disponível':'Aguardando dados'}</strong><small>Exige calendário da Série A completo</small></div>
       </div>
+      {data.table.length > 0 && <div className="league-kpis">
+        <div><span>Melhor ataque</span><strong>{[...data.table].sort((a,b)=>b.goals_for-a.goals_for)[0].team}</strong><small>{[...data.table].sort((a,b)=>b.goals_for-a.goals_for)[0].goals_for} gols marcados</small></div>
+        <div><span>Defesa menos vazada</span><strong>{[...data.table].sort((a,b)=>a.goals_against-b.goals_against)[0].team}</strong><small>{[...data.table].sort((a,b)=>a.goals_against-b.goals_against)[0].goals_against} gols sofridos</small></div>
+        <div><span>Maior saldo de gols</span><strong>{[...data.table].sort((a,b)=>b.goal_difference-a.goal_difference)[0].team}</strong><small>Saldo de {[...data.table].sort((a,b)=>b.goal_difference-a.goal_difference)[0].goal_difference} gols</small></div>
+        <div><span>Melhor mandante</span><strong>{[...data.table].sort((a,b)=>(b.home.played?b.home.points/b.home.played:0)-(a.home.played?a.home.points/a.home.played:0))[0].team}</strong><small>Aproveitamento por jogo em casa</small></div>
+      </div>}
       <section className="league-panel">
         <div className="league-panel-head"><div><h3>Classificação por período</h3><p>Use as abas para identificar quem melhorou no returno e a força como mandante/visitante.</p></div></div>
         <div className="league-switch">{periods.map(p=><button key={p} type="button" onClick={()=>setPeriod(p)} className={period===p?'selected':''}>{periodLabels[p]}</button>)}</div>
