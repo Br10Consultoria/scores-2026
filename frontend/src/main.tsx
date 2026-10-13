@@ -294,7 +294,7 @@ function Overview({ dashboard, openPlayer, openProjections }: { dashboard:Dashbo
       </div></div>
       <div><span className="source-status-icon muted"><Users size={18}/></span><div>
         <strong>{hasStats?'Estatísticas individuais disponíveis':'Estatísticas individuais indisponíveis'}</strong>
-        <p>{hasStats?'Ratings, gols e assistências carregados conforme cobertura da fonte.':'{hasForbidden?'A SofaScore retornou HTTP 403; a football-data.org não fornece esses dados no coletor atual.':'Ainda não há estatísticas individuais coletadas para este filtro.'}'}</p>
+        <p>{hasStats ? 'Ratings, gols e assistências carregados conforme cobertura da fonte.' : hasForbidden ? 'A SofaScore retornou HTTP 403; a football-data.org não fornece esses dados no coletor atual.' : 'Ainda não há estatísticas individuais coletadas para este filtro.'}</p>
       </div></div>
     </div>
     <div className="dashboard-cards">
