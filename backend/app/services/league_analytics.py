@@ -62,9 +62,11 @@ def _split(games, names):
         _apply(stats[a]['total'], ag, hg)
         _apply(stats[h]['home'], hg, ag)
         _apply(stats[a]['away'], ag, hg)
-        period = 'first' if g.get('round') is not None and int(g['round']) <= 19 else 'return'
-        _apply(stats[h][period], hg, ag)
-        _apply(stats[a][period], ag, hg)
+        round_number = g.get('round')
+        if isinstance(round_number, int) and 1 <= round_number <= 38:
+            period = 'first' if round_number <= 19 else 'return'
+            _apply(stats[h][period], hg, ag)
+            _apply(stats[a][period], ag, hg)
         history[h].append((hg, ag))
         history[a].append((ag, hg))
     for tid in names:
