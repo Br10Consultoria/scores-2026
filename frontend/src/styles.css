@@ -416,3 +416,6 @@ select {
 .overview-unavailable strong{font-size:14px;color:#294761}
 .overview-unavailable p{font-size:12px;color:#63788c;line-height:1.6;margin:6px 0 0}
 @media(max-width:720px){.source-status{grid-template-columns:1fr}.overview-intro button{width:100%;justify-content:center}}
+
+.player-photo-wrap{display:flex;justify-content:center;padding:10px}
+.player-photo-wrap img{width:112px;height:112px;object-fit:cover;border-radius:50%;border:3px solid #e0eef7;background:#f2f7fb}
