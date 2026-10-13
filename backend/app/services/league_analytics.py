@@ -157,7 +157,7 @@ def overview(games, source='sem dados', updated_at=None, season=2026):
     }
 
 
-def simulate(games, overrides=None, libertadores_places=6, sula_places=6, runs=2000, seed=2026):
+def simulate(games, overrides=None, libertadores_places=5, sula_places=6, runs=2000, seed=2026, continental_selections=None):
     games = _clean_games(games)
     current = overview(games)
     if not current['simulation_available']:
@@ -168,6 +168,13 @@ def simulate(games, overrides=None, libertadores_places=6, sula_places=6, runs=2
         raise ValueError('Número de simulações deve ficar entre 100 e 10.000.')
     names = _teams(games)
     stats = _split(games, names)
+    continental_selections = continental_selections or {}
+    allowed = {'copa_winner', 'copa_runner', 'libertadores_winner', 'sulamericana_winner'}
+    if any(k not in allowed for k in continental_selections):
+        raise ValueError('Seleção de campeões continentais inválida.')
+    use_cbf_rules = bool(any(continental_selections.values()))
+    if use_cbf_rules:
+        from app.services.continental_qualification import allocate_2026
     scheduled = [g for g in games if not is_finished(g)]
     overrides = overrides or {}
     fixture_ids = {str(g['id']) for g in scheduled}
@@ -184,14 +191,24 @@ def simulate(games, overrides=None, libertadores_places=6, sula_places=6, runs=2
             _apply(table[str(game['home_id'])], hg, ag)
             _apply(table[str(game['away_id'])], ag, hg)
         ranked = sorted(table.items(), key=_sort_key)
+        if use_cbf_rules:
+            scenario_table = [{
+                'team_id': tid, 'team': names[tid], 'points': item['points'],
+                'wins': item['wins'], 'goal_difference': item['goals_for'] - item['goals_against'],
+                'goals_for': item['goals_for'], 'position': pos,
+            } for pos, (tid, item) in enumerate(ranked, 1)]
+            allocation = allocate_2026(scenario_table, **continental_selections)
+            destinations = {str(row['team_id']):row['competition'] for row in allocation['slots']}
+        else:
+            destinations = {}
         for index, (tid, values) in enumerate(ranked):
             place = index + 1
             result = tally[tid]
             result['positions'].append(place)
             result['points'].append(values['points'])
             result['title'] += place == 1
-            result['libertadores'] += place <= libertadores_places
-            result['sulamericana'] += libertadores_places < place <= libertadores_places + sula_places
+            result['libertadores'] += (destinations.get(tid) == 'libertadores') if use_cbf_rules else (place <= libertadores_places)
+            result['sulamericana'] += (destinations.get(tid) == 'sulamericana') if use_cbf_rules else (libertadores_places < place <= libertadores_places + sula_places)
             result['relegation'] += place > len(names) - 4
 
     def pct(n):
@@ -219,8 +236,10 @@ def simulate(games, overrides=None, libertadores_places=6, sula_places=6, runs=2
         })
     forecast.sort(key=lambda item: (item['expected_position'], -item['expected_points']))
     return {
-        'method': 'Monte Carlo com mando, pontos por jogo geral, returno e últimos 5; modelo heurístico não calibrado. Critérios simplificados de desempate. Vagas continentais hipotéticas, sem ajuste automático de campeões de copas.',
+        'method': ('Monte Carlo heurístico: mando, pontos por jogo geral, returno e últimos 5; sem calibração histórica e com critérios de desempate simplificados. '
+                   + ('Aplicadas as vagas CBF 2026 para o cenário de campeões selecionado, inclusive repasses; resultados permanecem hipotéticos.' if use_cbf_rules else 'Vagas simplificadas por posição; selecione os campeões das copas para aplicar as regras da CBF.')),
         'runs': runs, 'seed': seed, 'libertadores_places': libertadores_places, 'sula_places': sula_places,
+        'qualification_mode': 'cbf_2026' if use_cbf_rules else 'position_only', 'continental_selections': continental_selections,
         'overrides': overrides, 'forecast': forecast,
         'fixture_probabilities': [{
             'id': str(g['id']), 'home_pct': round(100 * probabilities[str(g['id'])][0], 1),
