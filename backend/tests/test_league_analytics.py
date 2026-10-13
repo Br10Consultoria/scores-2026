@@ -52,6 +52,17 @@ class LeagueAnalyticsTests(unittest.TestCase):
             self.assertEqual(team['points_p90'], 38)
         self.assertAlmostEqual(sum(t['title_pct'] for t in result['forecast']), 100.0)
 
+    def test_monte_carlo_with_cbf_cup_winners(self):
+        result = simulate(complete_calendar(), runs=100, continental_selections={
+            'copa_winner': '1', 'copa_runner': '2',
+            'libertadores_winner': '1', 'sulamericana_winner': '7',
+        })
+        self.assertEqual(result['qualification_mode'], 'cbf_2026')
+        # Em cada simulação 9 clubes distintos ganham Libertadores e 6
+        # ganham Sul-Americana. Soma das porcentagens equivale às vagas.
+        self.assertAlmostEqual(sum(r['libertadores_pct'] for r in result['forecast']), 900.0, delta=0.1)
+        self.assertAlmostEqual(sum(r['sulamericana_pct'] for r in result['forecast']), 600.0, delta=0.1)
+
     def test_bad_override(self):
         with self.assertRaises(ValueError):
             simulate(complete_calendar(), overrides={'unknown': 'H'}, runs=100)
