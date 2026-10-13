@@ -6,7 +6,7 @@ type Status={
   configured:boolean;league_id:number;status:string;message:string;
   next_page:number;total_pages:number|null;imported_players:number;
   skipped_players:number;players_in_database:number;stats_in_database:number;
-  source:string;partial:boolean
+  source:string;partial:boolean;season_access?:boolean|null;subscription_plan?:string
 }
 type Props={token:string;apiUrl:string;onUpdated:()=>Promise<void>}
 
@@ -62,6 +62,7 @@ export default function PlayerSourcePanel({token,apiUrl,onUpdated}:Props){
     {error&&<div className="players-source-warning"><AlertCircle size={16}/>{error}</div>}
     {data&&!data.configured&&<div className="players-source-warning"><AlertCircle size={16}/>Configure <code>API_FOOTBALL_KEY</code> no .env e recrie o container backend. A chave de football-data.org não é a mesma.</div>}
     {data?.configured&&<>
+      {data.season_access===false && <div className="players-source-warning"><AlertCircle size={16}/><span><strong>Plano Free sem acesso à Série A 2026.</strong> Você pode continuar usando os jogos e a classificação pela football-data.org. Para importar jogadores atuais por esta API, é necessário acesso contratado à temporada 2026.</span></div>}
       <div className="players-source-kpis">
         <div><span>Atletas no banco</span><strong>{data.players_in_database}</strong></div>
         <div><span>Registros estatísticos</span><strong>{data.stats_in_database}</strong></div>
@@ -72,10 +73,10 @@ export default function PlayerSourcePanel({token,apiUrl,onUpdated}:Props){
         <span>{data.message||'Aguardando sincronização.'}</span>
       </div>
       <div className="players-source-actions">
-        <button type="button" className="secondary" disabled={busy||ongoing} onClick={()=>void synchronize()}>
+        <button type="button" className="secondary" disabled={busy||ongoing||data.season_access===false} onClick={()=>void synchronize()}>
           <RefreshCw size={16}/>{ongoing?'Importação em andamento':busy?'Iniciando...':data.status==='partial'?'Continuar próximas 8 páginas':'Sincronizar jogadores'}
         </button>
-        <small>A cada execução são consultadas até 8 páginas, com limite de ritmo e cache. O plano gratuito oferece 100 requisições por dia; os resultados dependem da cobertura de 2026.</small>
+        <small>Com cobertura autorizada, cada execução consulta até 8 páginas. A disponibilidade dos dados individuais depende do plano contratado e da competição.</small>
       </div>
       <p className="players-source-small">Enquanto a importação estiver parcial, rankings podem estar incompletos. O sistema não interpreta ausência de estatística como zero.</p>
     </>}
