@@ -51,6 +51,17 @@ def dashboard(competition_id: int | None = None, _: object = Depends(get_current
     players = player_query.count()
     stats_rows = stats_query.count()
     matches = match_query.count()
+    # O calendário pode incluir partidas futuras. Separa jogos realizados
+    # dos agendados sem executar consultas externas.
+    complete_statuses = ('finished', 'ended', 'ft', 'finalizado', 'completed', 'after extra time', 'after penalties', 'aet', 'pen')
+    finished_matches = match_query.filter(func.lower(func.coalesce(Match.status, '')).in_(complete_statuses)).count()
+    scheduled_matches = max(0, matches - finished_matches)
+    football_data_matches = match_query.filter(Match.match_id >= 900000000).count()
+    source_names = []
+    if football_data_matches:
+        source_names.append('football-data.org')
+    if matches > football_data_matches:
+        source_names.append('SofaScore')
     avg_rating = stats_query.with_entities(func.avg(PlayerStats.rating)).scalar()
     latest_run = db.query(CollectionRun).order_by(CollectionRun.started_at.desc()).first()
     latest_update = latest_run.finished_at if latest_run and latest_run.finished_at else db.query(func.max(Player.updated_at)).scalar()
@@ -103,13 +114,20 @@ def dashboard(competition_id: int | None = None, _: object = Depends(get_current
             'last_collection_started_at': _dt(latest_run.started_at) if latest_run else None,
             'last_collection_finished_at': _dt(latest_run.finished_at) if latest_run else None,
             'latest_data_update': _dt(latest_update),
-            'legend': 'Dados coletados da SofaScore e armazenados localmente. Ratings e estatísticas dependem da disponibilidade pública por jogador/competição.',
+            'legend': 'Resultados e calendário são dados reais disponíveis no banco. Rankings de atletas dependem de coleta autorizada de estatísticas.',
+            'sources': source_names,
+            'source_warning': bool(latest_run and latest_run.status in ('success_with_warnings', 'error')),
+            'player_stats_available': stats_rows > 0,
+            'finished_matches': finished_matches,
+            'scheduled_matches': scheduled_matches,
         },
         'competitions': [{'id': c.id, 'name': c.name, 'season_id': c.season_id, 'updated_at': _dt(c.updated_at), 'teams_count': team_counts_by_competition.get(c.id, 0)} for c in competitions],
         'teams': teams,
         'players': players,
         'stats_rows': stats_rows,
         'matches': matches,
+        'finished_matches': finished_matches,
+        'scheduled_matches': scheduled_matches,
         'avg_rating': round(float(avg_rating), 2) if avg_rating else None,
         'top_goals': [{'player_id': pid, 'name': n, 'team': t, 'goals': g or 0} for pid, n, t, g in top_goals_rows.order_by(desc(PlayerStats.goals)).limit(10).all()],
         'top_assists': [{'player_id': pid, 'name': n, 'team': t, 'assists': a or 0} for pid, n, t, a in top_assists_rows.order_by(desc(PlayerStats.assists)).limit(10).all()],
