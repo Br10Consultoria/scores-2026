@@ -13,6 +13,7 @@ from app.database import get_db
 from app.models import Match
 from app.services.football_data import get_brazil_serie_a
 from app.services.league_analytics import overview, simulate
+from app.services.league_validation import validate_calendar
 
 router = APIRouter(prefix='/analytics', tags=['analytics'])
 
@@ -72,7 +73,26 @@ def brasileirao(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     response = overview(data['games'], source=data['source'], updated_at=data['updated_at'], season=season)
     response['provider_warning'] = warning
+    response['validation'] = validate_calendar(data['games'], data['source'], data['updated_at'])
+    response['simulation_available'] = response['simulation_available'] and response['validation']['ok']
+    if not response['validation']['ok']:
+        response['notice'] = response['validation']['message']
     return response
+
+
+@router.get('/brasileirao/validation')
+def validate_brasileirao(
+    season: int = Query(2026, ge=2020, le=2035),
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        data, warning = _dataset(db, season)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    result = validate_calendar(data['games'], data['source'], data['updated_at'])
+    result['provider_warning'] = warning
+    return result
 
 
 class SimulationRequest(BaseModel):
@@ -92,6 +112,9 @@ def simulate_brasileirao(
 ):
     try:
         data, warning = _dataset(db, payload.season)
+        validation = validate_calendar(data['games'], data['source'], data['updated_at'])
+        if not validation['ok']:
+            raise ValueError('Calendário inválido ou incompleto. Consulte /api/v1/analytics/brasileirao/validation para detalhes.')
         result = simulate(
             data['games'], overrides=payload.overrides,
             libertadores_places=payload.libertadores_places,
