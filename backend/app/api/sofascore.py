@@ -99,6 +99,7 @@ def _player_dict(player: Player, team_name: str | None = None, stats: PlayerStat
         'preferred_foot': player.preferred_foot,
         'market_value': player.market_value,
         'updated_at': _dt(player.updated_at),
+        'photo_url': (player.raw_data or {}).get('photo') or (player.raw_data or {}).get('player', {}).get('photo'),
     }
     if stats:
         data['stats'] = _stats_dict(stats)
