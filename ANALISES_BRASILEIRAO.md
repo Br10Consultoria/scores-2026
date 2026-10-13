@@ -86,3 +86,89 @@ python -m unittest discover -s tests -v
 ```
 
 Os testes usam somente a biblioteca padrão e não consultam APIs externas.
+
+## Copa do Brasil, Libertadores, Sul-Americana e repasse de vagas 2027
+
+A aba **Projeções Brasileirão** exibe três cards de competições, resultado de finais quando confirmado e simulador de distribuição das vagas por classificação brasileira.
+
+### Fonte das três copas
+
+Para Copa do Brasil, Libertadores e Sul-Americana, o sistema usa [API-Football (API-Sports)](https://www.api-football.com/). A chave não é a mesma da football-data.org.
+
+```env
+API_FOOTBALL_KEY=chave_gerada_no_painel_api_football
+API_FOOTBALL_CACHE_SECONDS=3600
+```
+
+- Busca o ID da competição automaticamente em `GET /leagues?search=...`, verificando a temporada 2026.
+- Busca calendário e resultados em `GET /fixtures?league={id}&season=2026`.
+- Usa Redis (TTL mínimo de 15 minutos para resultados; por padrão, 60 minutos), prevenindo chamadas excessivas.
+- Só reconhece campeão e vice ao identificar **uma final única concluída com vencedor inequívoco**. Se não houver final ou se o provedor não tiver cobertura, informa *em andamento / dados indisponíveis* e não fabrica campeão.
+- No plano gratuito API-Football disponibiliza até 100 consultas/dia. A cobertura de 2026 deve ser confirmada na resposta da própria API.
+
+Sem `API_FOOTBALL_KEY`, **as copas não podem ser atualizadas automaticamente**. Entretanto, o usuário pode simular os campeões manualmente, selecionando clubes da Série A.
+
+### Regra de vagas (REC Série A 2026, artigos 6 e 7)
+
+- Quatro vagas brasileiras para a **fase de grupos** da Libertadores via Série A e **uma à fase preliminar**.
+- **Campeão da Copa do Brasil**: fase de grupos; **vice**: fase preliminar.
+- Campeões brasileiros da **Libertadores 2026** e da **Sul-Americana 2026** têm acesso continental independente.
+- Quando uma vaga se sobrepõe, é repassada na ordem do Brasileirão, aplicando a preferência por fase de grupos e a regra de redirecionamento da vaga direta da Copa ao vice quando aplicável.
+- **Seis vagas à Sul-Americana** para os melhores clubes restantes do Brasileirão que não estejam classificados à Libertadores.
+- A aplicação é **condicional** enquanto as competições não estiverem finalizadas, e não substitui decisões de elegibilidade/disciplinas da CBF/Conmebol.
+
+Regulamento oficial: https://stcbfsiteprdimgbrs.blob.core.windows.net/img-site/cdn/REC_Brasileiro_SA_rie_A_2026_v15_12_2025_final_02692c1077.pdf
+
+Rotas autenticadas:
+
+- `GET /api/v1/analytics/continental?season=2026` — fonte, cobertura, copas e projeção atual.
+- `POST /api/v1/analytics/continental/scenario` — recalcula com possíveis vencedores/vice da Copa do Brasil e vencedores das duas competições continentais. `ranking` recebe uma permutação dos 20 IDs para simular outra classificação final.
+
+Exemplo sem divulgar chaves:
+
+```json
+{
+  "season": 2026,
+  "copa_winner": "Palmeiras",
+  "copa_runner": "Grêmio",
+  "libertadores_winner": "Palmeiras",
+  "sulamericana_winner": "Atlético-MG",
+  "use_confirmed_results": false
+}
+```
+
+### Como interpretar "automático"
+
+Os resultados das copas podem ser coletados automaticamente **após configurar a chave API-Football**; o cálculo dos repasses de vagas acontece automaticamente a partir dos resultados confirmados. Caso as finais estejam pendentes, o módulo apresenta uma previsão condicional e permite palpites, identificados claramente como simulação. O cenário inicial considera a classificação **atual**, e o botão opcional permite empregar a classificação final projetada pelo Monte Carlo.
+
+### Fallback para erro 403 da SofaScore
+
+A sincronização existente continua tentando a SofaScore. Quando a coleta estrutural da Série A falha, e `FOOTBALL_DATA_API_KEY` está configurada, o backend tenta gravar **times, classificação e calendário do Brasileirão** da football-data.org no PostgreSQL. Os IDs dos dois provedores ficam separados para evitar colisões. Isso **não substitui estatísticas avançadas de jogadores e goleiros**.
+
+Após atualizar:
+
+```bash
+cd /opt/scores-2026
+git pull origin main
+nano .env
+docker compose up -d --build backend frontend
+docker compose logs --tail=100 backend
+```
+
+Depois da atualização, acione **Sincronizar** no painel e aguarde a mensagem de conclusão. O sistema recarrega os dados sob comando do usuário; a sincronização da SofaScore é em segundo plano.
+
+#### Checagem segura das copas dentro do container
+
+```bash
+docker compose exec -T backend python - <<'PY'
+from app.services.api_football_cups import load_cup_statuses
+for key, result in load_cup_statuses().items():
+    print(key, result['status'], 'jogos:', result['matches'], 'campeão:', result['champion'])
+PY
+```
+
+Nenhum token aparece nessa saída. O HTTP 403 da SofaScore pode continuar até o fornecedor autorizar o acesso; não tente contornar bloqueios por scraping agressivo.
+
+#### Segurança do .env
+
+O token usado na Copa é **API_FOOTBALL_KEY**, diferente de **FOOTBALL_DATA_API_KEY**. Nunca compartilhe os valores em chat ou commits. Após exposição, revogue e gere novas credenciais. Prefira `CORS_ORIGIN_REGEX=` vazio em produção e `CORS_ORIGINS` com a URL HTTPS exata. Atualizar `FIRST_SUPERUSER_PASSWORD` no arquivo depois que o usuário já foi criado **não redefine a senha armazenada no banco**.
