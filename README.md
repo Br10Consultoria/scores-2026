@@ -2,6 +2,14 @@
 
 **Scores 2026** é um sistema web profissional para coleta, organização e análise de dados da SofaScore. O projeto inclui autenticação por usuário/senha, autenticação de dois fatores, painel responsivo, relatórios estatísticos, exportação CSV, integração com Telegram e **análise com IA via OpenAI**. A solução foi preparada para execução em **servidor próprio**, usando Docker Compose, PostgreSQL e Redis, sem dependência de hospedagem Manus.
 
+## Projeções do Brasileirão (novo)
+
+A aba **Projeções Brasileirão** usa resultados reais para construir tabelas de turno e returno, casa e fora, últimos cinco jogos, calendário e simulador 1/X/2 das rodadas restantes. Com os 380 jogos cadastrados, o servidor executa 2.000 simulações Monte Carlo por requisição, com cenários configuráveis de G4 a G12 e probabilidades estimadas de título, Libertadores, Sul-Americana e rebaixamento.
+
+A fonte preferencial é a API gratuita [football-data.org](https://www.football-data.org/coverage) para a Série A, configurada com `FOOTBALL_DATA_API_KEY` no `.env` (cache Redis de 30 min); sem chave, utiliza partidas da SofaScore já armazenadas. **O aplicativo nunca inventa jogos ou publica probabilidades com calendário incompleto.**
+
+Consulte **[ANALISES_BRASILEIRAO.md](ANALISES_BRASILEIRAO.md)** para instruções, limitações e exemplos de chamadas.
+
 ## Recursos implementados
 
 | Área | Recursos |
