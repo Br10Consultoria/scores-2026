@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.datetime_utils import utc_now_naive
 from app.models import Player, PlayerStats, Team, StandingRow, PlayerImportCheckpoint
-from app.services.api_football_cups import ApiFootballClient
+from app.services.api_football_cups import ApiFootballClient, SeasonAccessError
 from app.services.continental_qualification import _short
 
 LOG = logging.getLogger(__name__)
@@ -234,6 +234,9 @@ def import_players(db: Session, *, pages=None):
         db.commit()
     try:
         client = ApiFootballClient()
+        # Verifica plano antes de qualquer consulta /leagues ou /players.
+        # No Free não vale a pena repetir tentativas para temporada 2026.
+        client.ensure_season_access(2026)
         mapping = team_map(db)
         if len(mapping) < 20:
             raise RuntimeError('Importe primeiro os 20 clubes da Série A.')
@@ -289,7 +292,7 @@ def import_players(db: Session, *, pages=None):
     except Exception as exc:
         db.rollback()
         checkpoint = get_checkpoint(db) or PlayerImportCheckpoint(id=1, source='api-football', next_page=1)
-        checkpoint.status = 'error'
+        checkpoint.status = 'season_restricted' if isinstance(exc, SeasonAccessError) else 'error'
         checkpoint.message = str(exc)[:400]
         db.add(checkpoint)
         db.commit()
