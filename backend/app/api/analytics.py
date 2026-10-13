@@ -107,6 +107,7 @@ class SimulationRequest(BaseModel):
     libertadores_places: int = Field(6, ge=4, le=12)
     sula_places: int = Field(6, ge=0, le=10)
     overrides: dict[str, str] = Field(default_factory=dict)
+    continental_selections: dict[str, str] = Field(default_factory=dict)
 
 
 @router.post('/brasileirao/simulate')
@@ -125,6 +126,7 @@ def simulate_brasileirao(
             libertadores_places=payload.libertadores_places,
             sula_places=payload.sula_places,
             runs=payload.runs, seed=payload.seed,
+            continental_selections=payload.continental_selections,
         )
         result['source'] = data['source']
         result['updated_at'] = data['updated_at']
