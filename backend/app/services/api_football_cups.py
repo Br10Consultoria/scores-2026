@@ -24,6 +24,27 @@ FINISHED = {'FT', 'AET', 'PEN'}
 UNAVAILABLE = {'PST', 'CANC', 'ABD', 'SUSP', 'AWD', 'WO'}
 
 
+class SeasonAccessError(RuntimeError):
+    """O plano não permite consultar a temporada solicitada."""
+
+
+SEASON_RESTRICTION_MESSAGE = (
+    'Seu plano Free da API-Football não permite consultar a temporada 2026. '
+    'O provedor informou acesso apenas às temporadas de 2022 a 2024. '
+    'É necessário um plano com cobertura de 2026 para coletar esses dados.'
+)
+
+
+def check_season_access(status: dict, year: int) -> str:
+    """Verificação prévia com /status. Não usa chave/token em logs."""
+    subscription = (status.get('response') or {}).get('subscription') or {}
+    plan = str(subscription.get('plan') or 'não identificado')
+    if plan.casefold() == 'free' and year == 2026:
+        raise SeasonAccessError(SEASON_RESTRICTION_MESSAGE)
+    return plan
+
+
+
 def _norm(value: str | None) -> str:
     value = unicodedata.normalize('NFKD', str(value or ''))
     return re.sub(r'[^a-z0-9]+', ' ', ''.join(c for c in value if not unicodedata.combining(c)).lower()).strip()
@@ -39,6 +60,11 @@ class ApiFootballClient:
             self.cache.ping()
         except Exception as exc:
             LOG.warning('Cache API-Football desativado: %s', exc)
+
+    def ensure_season_access(self, year: int) -> str:
+        # O status é cacheado por 15 minutos; evita consultas proibidas às 3 copas.
+        status = self.get('/status', {}, ttl=900)
+        return check_season_access(status, year)
 
     def get(self, endpoint: str, params: dict[str, Any], ttl: int) -> dict:
         key = 'api-football:v1:' + endpoint + ':' + json.dumps(params, sort_keys=True)
@@ -62,6 +88,10 @@ class ApiFootballClient:
         response.raise_for_status()
         body = response.json()
         if body.get('errors'):
+            errors = body.get('errors')
+            plan_error = str(errors.get('plan') or '') if isinstance(errors, dict) else ''
+            if 'do not have access to this season' in plan_error.casefold():
+                raise SeasonAccessError(SEASON_RESTRICTION_MESSAGE)
             # Não retornar conteúdo arbitrário do provedor: evita vazamento de tokens nos logs.
             raise RuntimeError('API-Football rejeitou a consulta (verifique o plano e a competição)')
         if self.cache:
@@ -175,6 +205,16 @@ def load_cup_statuses(year=2026):
             for key, meta in COMPETITIONS.items()
         }
     client = ApiFootballClient()
+    try:
+        client.ensure_season_access(year)
+    except SeasonAccessError as exc:
+        return {
+            key: {'key': key, 'name': meta['name'], 'source': 'API-Football',
+                  'status': 'season_restricted', 'matches': 0, 'completed_matches': 0,
+                  'champion': None, 'runner_up': None, 'finals': [], 'recent_matches': [],
+                  'message': str(exc)}
+            for key, meta in COMPETITIONS.items()
+        }
     result = {}
     for key, meta in COMPETITIONS.items():
         try:
