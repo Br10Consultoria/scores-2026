@@ -17,7 +17,7 @@ const OPTIONS:{key:SelectionKey;label:string}[]=[
   {key:'libertadores_winner',label:'Campeão Libertadores'},
   {key:'sulamericana_winner',label:'Campeão Sul-Americana'}
 ]
-const statusName:Record<string,string>={confirmed:'Campeão confirmado',in_progress:'Em andamento',no_data:'Sem jogos',not_configured:'API não configurada',unavailable:'Dados indisponíveis'}
+const statusName:Record<string,string>={confirmed:'Campeão confirmado',in_progress:'Em andamento',no_data:'Sem jogos',not_configured:'API não configurada',unavailable:'Dados indisponíveis',season_restricted:'Plano Free não cobre 2026'}
 const destinations:Record<string,string>={libertadores:'Libertadores',sulamericana:'Sul-Americana',serie_b:'Rebaixamento',none:'Sem vaga no cenário'}
 
 export default function ContinentalQualification({token,apiUrl,projectionRanking,onSelectionChange}:Props){
