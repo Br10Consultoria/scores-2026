@@ -175,6 +175,26 @@ def store_player(db: Session, raw: dict, mapping: dict):
     return 'saved'
 
 
+
+def import_rankings(db: Session, client, league_id: int, season: int, mapping: dict):
+    """Atualiza os líderes oficiais mesmo quando o elenco completo é parcial."""
+    imported = 0
+    for index, endpoint in enumerate(('/players/topscorers', '/players/topassists')):
+        if index:
+            time.sleep(7)
+        try:
+            data = client.get(endpoint, {'league':league_id,'season':season}, ttl=21600)
+            rows = data.get('response') or []
+            for row in rows:
+                if store_player(db, row, mapping) == 'saved':
+                    imported += 1
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            LOG.warning('Ranking de atletas indisponível (%s): %s', endpoint, str(exc)[:160])
+    return imported
+
+
 def get_checkpoint(db: Session):
     return db.get(PlayerImportCheckpoint, 1)
 
@@ -224,6 +244,7 @@ def import_players(db: Session, *, pages=None):
             raise RuntimeError('Série A 2026 não disponível para sua chave/API-Football.')
         page = max(1, checkpoint.next_page)
         imported = skipped = 0
+        completed = False
         for step in range(limit):
             data = client.get('/players', {'league':league_id,'season':season,'page':page}, ttl=21600)
             response = data.get('response') or []
@@ -247,17 +268,22 @@ def import_players(db: Session, *, pages=None):
             db.add(checkpoint)
             db.commit()
             if page >= total:
-                checkpoint.status = 'completed'
-                checkpoint.next_page = 1
-                checkpoint.message = f'Importação concluída: {imported} atletas nesta execução. O sistema possui o catálogo do provedor; estatísticas variam por partida.'
-                db.commit()
-                return player_status(db)
+                completed = True
+                break
             page += 1
             # Respeita o limite gratuito de 10 chamadas por minuto.
             if step < limit - 1:
                 time.sleep(7)
-        checkpoint.status = 'partial'
-        checkpoint.message = f'Etapa concluída: {imported} atletas, {skipped} sem equipe identificada/estatísticas. Próxima página: {checkpoint.next_page}/{checkpoint.total_pages}.'
+        time.sleep(7)
+        ranking_count = import_rankings(db, client, league_id, season, mapping)
+        checkpoint = get_checkpoint(db)
+        if completed:
+            checkpoint.status = 'completed'
+            checkpoint.next_page = 1
+            checkpoint.message = f'Catálogo percorrido: {imported} atletas nesta etapa e {ranking_count} registros de rankings de artilheiros/assistências consultados. Cobertura sujeita ao provedor.'
+        else:
+            checkpoint.status = 'partial'
+            checkpoint.message = f'Etapa concluída: {imported} atletas, {skipped} sem equipe/estatísticas. {ranking_count} registros de rankings consultados. Próxima página: {checkpoint.next_page}/{checkpoint.total_pages}.'
         db.commit()
         return player_status(db)
     except Exception as exc:
