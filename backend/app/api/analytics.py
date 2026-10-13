@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.database import get_db
 from app.models import Match
 from app.services.football_data import get_brazil_serie_a
+from app.services.football_data_import import PROVIDER_ID_OFFSET
 from app.services.league_analytics import overview, simulate
 from app.services.league_validation import validate_calendar
 
@@ -25,6 +26,10 @@ def _from_database(db: Session, season: int):
         Match.competition_id == settings.SOFASCORE_SERIE_A_TOURNAMENT_ID,
         Match.season_id == settings.SOFASCORE_SERIE_A_SEASON_ID,
     ).all()
+    # Não misturar IDs de jogos SofaScore com IDs da football-data.org.
+    provider_matches = [m for m in matches if m.match_id >= PROVIDER_ID_OFFSET]
+    if provider_matches:
+        matches = provider_matches
     games = []
     for match in matches:
         if not match.home_team_id or not match.away_team_id:
@@ -43,7 +48,7 @@ def _from_database(db: Session, season: int):
             'away_goals': match.away_score,
             'status': match.status,
         })
-    return {'games': games, 'source': 'SofaScore (banco local)', 'updated_at': None}
+    return {'games': games, 'source': 'football-data.org (banco local)' if provider_matches else 'SofaScore (banco local)', 'updated_at': None}
 
 
 def _dataset(db: Session, season: int):
