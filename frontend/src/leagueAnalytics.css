@@ -47,3 +47,14 @@
 .league-empty{padding:22px;text-align:center;color:#6b7f91;font-size:13px}
 @media(max-width:900px){.league-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.league-fixtures{grid-template-columns:1fr}}
 @media(max-width:540px){.league-kpis{grid-template-columns:1fr 1fr}.league-kpis>div{padding:12px}.league-kpis strong{font-size:15px}.league-panel{padding:12px}.league-footer-actions{justify-content:flex-start}.league-sim-footer{align-items:flex-start}.league-btn{font-size:12px}.league-match{padding:10px}}
+
+.league-validation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.league-validation-item{display:flex;align-items:center;gap:10px;border:1px solid #e1e9f0;border-radius:10px;padding:10px 12px;min-width:0}
+.league-validation-item>div{display:flex;flex-direction:column;gap:3px}
+.league-validation-item strong{font-size:12px}
+.league-validation-item small{font-size:11px;color:#677b8a}
+.league-check-pass,.league-check-fail{display:grid;place-items:center;flex:none;width:25px;height:25px;border-radius:50%;font-size:13px;font-weight:800}
+.league-check-pass,.league-validation-ready{background:#e8f7ed;color:#14744a}
+.league-check-fail,.league-validation-wait{background:#fff1e3;color:#aa5e14}
+.league-validation-ready,.league-validation-wait{font-size:12px;font-weight:750;border-radius:999px;padding:7px 12px}
+@media(max-width:640px){.league-validation-grid{grid-template-columns:1fr}}
